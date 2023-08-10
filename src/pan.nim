@@ -7,7 +7,7 @@
 # whitespace/comment
 # content :: 0 1
 
-import std/[strutils, parseutils, bitops, math, macros]
+import std/[strutils, parseutils, bitops, macros]
 
 type
     PanParserState = enum
@@ -46,6 +46,9 @@ const
     grayMap* = {grayMapRaw, grayMapBinray}
     pixMap* = {pixMapRaw, pixMapBinray}
 
+    uncompressed* = {P1..P3}
+    compressed* = {P4..P6}
+
 # ----- utils
 
 func toDigit(b: bool): char =
@@ -59,10 +62,6 @@ func toDigit(b: byte): char =
     of 0.byte: '0'
     else:
         raise newException(ValueError, "invalid byte value: " & $b.int)
-
-func addByte(arr: var seq[byte], b: byte, cutAfter: range[0..7]) =
-    for i in countdown(7, cutAfter):
-        arr.add testbit(b, i).byte
 
 macro addMulti(wrapper: untyped, elems: varargs[untyped]): untyped =
     result = newStmtList()
@@ -79,44 +78,45 @@ func checkInRange(pan: Pan, x, y: int): bool =
 func size*(pan: Pan): int =
     pan.width * pan.height
 
-func fileExt*(magic: PanMagic): string = 
+func fileExt*(magic: PanMagic): string =
     case magic
     of bitMap: "pbm"
     of grayMap: "pgm"
     of pixMap: "ppm"
 
-func parsePanContent*(s: string, offset: int, result: var Pan) =
-    let
-        size = s.len - offset
-        extraBits = result.width mod 8
-        bytesRow = result.width.ceilDiv 8
-
-        limit =
-            if extraBits == 0: 0
-            else: 8-extraBits
-
-    for i in 0 ..< size:
-        let ch = s[i + offset]
-        case result.magic
-        of P1:
-            case ch
-            of Whitespace: discard
-            of '1': result.data.add 1.byte
-            of '0': result.data.add 0.byte
-            else: raise newException(ValueError,
-                    "expected 1 or 0 in data section but got '" & ch &
-                    "' ASCii code: " & $ch.ord)
-
-        of P4:
-            let
-                cut =
-                    if i mod bytesRow == bytesRow-1: limit
-                    else: 0
-
-            result.data.addByte cast[byte](ch), cut
-
+iterator findInts(s: string, offset: int): int =
+    var i = offset
+    while i <= s.high:
+        let ch = s[i]
+        case ch
+        of Whitespace: inc i
+        of Digits:
+            var n: int
+            inc i, parseInt(s, n, i)
+            yield n
         else:
-            raise newException(ValueError, "not implemented")
+            raise newException(ValueError,
+                "expected a digit in data section but got '" & ch &
+                "' ASCii code: " & $ch.ord)
+
+template impossible =
+    raise newException(ValueError, "I thought it was impossible")
+
+
+func parsePanContent*(s: string, offset: int, result: var Pan) =
+    case result.magic
+    of compressed:
+        result.data = cast[seq[byte]](s[offset..s.high])
+    of uncompressed:
+        for i in findInts(s, offset):
+            case result.magic
+            of P1:
+                assert i in 0..1
+                result.data.add i.byte
+            of P2: discard
+            of P3: discard
+            else: impossible
+
 
 func getBool*(p: Pan, x, y: int): bool =
     assert p.checkInRange(x, y)
@@ -160,7 +160,7 @@ iterator pairsBool*(pan: Pan): tuple[position: Position, value: bool] =
 func parsePan*(s: string, captureComments = false): Pan =
     var
         lastCh = '\n'
-        i = 0.Natural
+        i = 0
         state = ppsMagic
 
     while i != s.len:
@@ -208,6 +208,9 @@ func `$`*(pan: Pan, addComments = true): string =
     result.addMulti $pan.width, ' '
     result.addMulti $pan.height, '\n'
 
+    if pan.magic notin bitMap:
+        result.addMulti $pan.maxValue, '\n'
+
     case pan.magic
     of P1:
         for i in 0..<pan.size:
@@ -216,6 +219,10 @@ func `$`*(pan: Pan, addComments = true): string =
                 else: ' '
 
             result.addMulti toDigit pan.data[i], whitespace
+
+    of compressed:
+        for i in pan.data:
+            result.add i.char
 
     else:
         raise newException(ValueError, "not implemented")
