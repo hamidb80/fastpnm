@@ -84,8 +84,10 @@ func fileExt*(magic: PanMagic): string =
     of grayMap: "pgm"
     of pixMap: "ppm"
 
-iterator findInts(s: string, offset: int): int =
-    var i = offset
+iterator findInts(s: string, offset: int): tuple[index, value: int] =
+    var
+        i = offset
+        c = 0
     while i <= s.high:
         let ch = s[i]
         case ch
@@ -93,7 +95,8 @@ iterator findInts(s: string, offset: int): int =
         of Digits:
             var n: int
             inc i, parseInt(s, n, i)
-            yield n
+            yield (c, n)
+            inc c
         else:
             raise newException(ValueError,
                 "expected a digit in data section but got '" & ch &
@@ -102,35 +105,44 @@ iterator findInts(s: string, offset: int): int =
 template impossible =
     raise newException(ValueError, "I thought it was impossible")
 
+func add(s: var seq[byte], index: int, b: bool) =
+    let
+        q = index div 8
+        r = index mod 8
 
-func parsePanContent*(s: string, offset: int, result: var Pan) =
+    if s.len == q:
+        s.add 0.byte
+
+    if b:
+        s[q].setBit 7-r
+
+func parsePanContent(s: string, offset: int, result: var Pan) =
     case result.magic
-    of compressed:
-        result.data = cast[seq[byte]](s[offset..s.high])
     of uncompressed:
-        for i in findInts(s, offset):
+        for i, n in findInts(s, offset):
             case result.magic
             of P1:
-                assert i in 0..1
-                result.data.add i.byte
+                assert n in 0..1
+                result.data.add(i, n == 1)
+                debugecho (i, n)
             of P2: discard
             of P3: discard
             else: impossible
+    of compressed:
+        result.data = cast[seq[byte]](s[offset..s.high])
 
 
 func getBool*(p: Pan, x, y: int): bool =
     assert p.checkInRange(x, y)
     case p.magic
-    of P1:
-        p.data[x + y*p.width] == 1.byte
-    of P4:
+    of bitMap:
         let
             d = x + y*p.width
             q = d div 8
             r = d mod 8
-        p.data[q].testBit(r)
+        p.data[q].testBit(7-r)
     else:
-        raise newException(ValueError, "?")
+        raise newException(ValueError, "the magic '" & $p.magic & "' does not have bool value")
 
 # func getGrayScale*(pan: Pan, x, y: int): uint8 =
 #     assert pan.magic in grayMap
@@ -213,12 +225,10 @@ func `$`*(pan: Pan, addComments = true): string =
 
     case pan.magic
     of P1:
-        for i in 0..<pan.size:
-            let whitespace =
-                if i+1 == pan.width: '\n'
-                else: ' '
-
-            result.addMulti toDigit pan.data[i], whitespace
+        for y in 0..<pan.height:
+            for x in 0..<pan.width:
+                result.addMulti toDigit pan.getBool(x, y), ' '
+            result.add '\n'
 
     of compressed:
         for i in pan.data:
