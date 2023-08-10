@@ -221,6 +221,8 @@ func parsePan*(s: string, captureComments = false): Pan =
             of ppsMaxVal:
                 if result.magic notin bitMap:
                     inc i, s.parseInt(result.maxValue, i)
+                else:
+                    result.maxValue = 1
                 inc state
 
             of ppsContent:
