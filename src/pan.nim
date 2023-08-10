@@ -7,8 +7,7 @@
 # whitespace/comment
 # content :: 0 1
 
-import std/[strutils, parseutils, bitops, math]
-import bitty, chroma
+import std/[strutils, parseutils, bitops, math, macros]
 
 type
     PanParserState = enum
@@ -27,16 +26,10 @@ type
         pixMapBinray = "P6"
 
     Pan* = object
+        magic*: PanMagic
         width*, height*, maxValue*: Natural
         comments*: seq[string]
-
-        case magic*: PanMagic
-        of bitMapRaw, bitMapBinray:
-            b2*: BitArray
-        of grayMapRaw, grayMapBinray:
-            g2*: seq[uint8]
-        of pixMapRaw, pixMapBinray:
-            p2*: seq[ColorRGB]
+        data*: seq[byte]
 
     Position* = tuple
         x, y: int
@@ -55,30 +48,33 @@ const
 
 # ----- utils
 
-template addMulti(z, a, b): untyped =
-    z.add a
-    z.add b
-
-template addMulti(z, a, b, c): untyped =
-    z.add a
-    z.add b
-    z.add c
+macro addMulti(wrapper: untyped, elems: varargs[untyped]): untyped =
+    result = newStmtList()
+    for e in elems:
+        result.add quote do:
+            `wrapper`.add `e`
 
 func toDigit(b: bool): char =
     case b
     of true: '1'
     of false: '0'
 
-func addByte(arr: var BitArray, b: byte, cutAfter: range[0..7]) =
+func toDigit(b: byte): char =
+    case b
+    of 1.byte: '1'
+    of 0.byte: '0'
+    else:
+        raise newException(ValueError, "invalid byte value: " & $b.int)
+
+func addByte(arr: var seq[byte], b: byte, cutAfter: range[0..7]) =
     for i in countdown(7, cutAfter):
-        arr.add testbit(b, i)
+        # arr.add testbit(b, i)
+        # TODO
+        discard
 
 func checkInRange(pan: Pan, x, y: int): bool =
     x in 0 ..< pan.width and
     y in 0 ..< pan.height
-
-func getIndex(pan: Pan, x, y: int): int =
-    y*pan.width + x
 
 func code*(pm: PanMagic): range[1..6] =
     pm.ord + 1
@@ -98,17 +94,17 @@ func parsePanContent*(s: string, offset: int, result: var Pan) =
             if extraBits == 0: 0
             else: 8-extraBits
 
-
     for i in 0 ..< size:
         let ch = s[i + offset]
         case result.magic
         of P1:
             case ch
             of Whitespace: discard
-            of '1': result.b2.add true
-            of '0': result.b2.add false
+            of '1': result.data.add 1.byte
+            of '0': result.data.add 0.byte
             else: raise newException(ValueError,
-                    "expected 1 or 0 in data section but got '" & ch & '\'')
+                    "expected 1 or 0 in data section but got '" & ch &
+                    "' ASCii code: " & $ch.ord)
 
         of P4:
             let
@@ -116,40 +112,44 @@ func parsePanContent*(s: string, offset: int, result: var Pan) =
                     if i mod bytesRow == bytesRow-1: limit
                     else: 0
 
-            result.b2.addByte cast[byte](ch), cut
+            result.data.addByte cast[byte](ch), cut
 
         else:
             raise newException(ValueError, "not implemented")
 
-func getBool*(pan: Pan, x, y: int): bool =
-    assert pan.magic in bitMap
-    assert pan.checkInRange(x, y)
-    pan.b2[pan.getIndex(x, y)]
+func getBool*(p: Pan, x, y: int): bool =
+    assert p.checkInRange(x, y)
+    case p.magic
+    of P1:
+        p.data[x + y*p.width] == 1.byte
+    of P4:
+        let
+            d = x + y*p.width
+            q = d div 8
+            r = d mod 8
+        p.data[q].testBit(r)
+    else:
+        raise newException(ValueError, "?")
 
-func setBool*(pan: var Pan, x, y: int, b: bool) =
-    assert pan.magic in bitMap
-    assert pan.checkInRange(x, y)
-    pan.b2[pan.getIndex(x, y)] = b
+# func getGrayScale*(pan: Pan, x, y: int): uint8 =
+#     assert pan.magic in grayMap
+#     assert pan.checkInRange(x, y)
+#     pan.g2[pan.getIndex(x, y)]
 
-func getGrayScale*(pan: Pan, x, y: int): uint8 =
-    assert pan.magic in grayMap
-    assert pan.checkInRange(x, y)
-    pan.g2[pan.getIndex(x, y)]
+# func setGrayScale*(pan: var Pan, x, y: int, b: uint8): uint8 =
+#     assert pan.magic in grayMap
+#     assert pan.checkInRange(x, y)
+#     pan.g2[pan.getIndex(x, y)] = b
 
-func setGrayScale*(pan: var Pan, x, y: int, b: uint8): uint8 =
-    assert pan.magic in grayMap
-    assert pan.checkInRange(x, y)
-    pan.g2[pan.getIndex(x, y)] = b
+# func getColor*(pan: Pan, x, y: int): ColorRgb =
+#     assert pan.magic in pixMap
+#     assert pan.checkInRange(x, y)
+#     pan.p2[pan.getIndex(x, y)]
 
-func getColor*(pan: Pan, x, y: int): ColorRgb =
-    assert pan.magic in pixMap
-    assert pan.checkInRange(x, y)
-    pan.p2[pan.getIndex(x, y)]
-
-func setColor*(pan: var Pan, x, y: int, b: ColorRgb) =
-    assert pan.magic in pixMap
-    assert pan.checkInRange(x, y)
-    pan.p2[pan.getIndex(x, y)] = b
+# func setColor*(pan: var Pan, x, y: int, b: ColorRgb) =
+#     assert pan.magic in pixMap
+#     assert pan.checkInRange(x, y)
+#     pan.p2[pan.getIndex(x, y)] = b
 
 iterator pairsBool*(pan: Pan): tuple[position: Position, value: bool] =
     for y in 0..<pan.height:
@@ -176,7 +176,7 @@ func parsePan*(s: string, captureComments = false): Pan =
             of ppsMagic:
                 var word: string
                 inc i, s.parseIdent(word, i)
-                result = Pan(magic: parseEnum[PanMagic](word.toUpperAscii))
+                result.magic = parseEnum[PanMagic](word.toUpperAscii)
                 inc state
 
             of ppsWidth:
@@ -188,16 +188,11 @@ func parsePan*(s: string, captureComments = false): Pan =
                 inc state
 
             of ppsMaxVal:
-                if result.magic notin {P1, P4}:
+                if result.magic notin bitMap:
                     inc i, s.parseInt(result.maxValue, i)
                 inc state
 
             of ppsContent:
-                case result.magic
-                of P1, P4:
-                    result.b2 = newBitArray()
-                else:
-                    discard
                 parsePanContent s, i, result
                 break
 
@@ -214,12 +209,12 @@ func `$`*(pan: Pan, addComments = true): string =
 
     case pan.magic
     of P1:
-        for i, b in pan.b2:
+        for i in 0..<pan.size:
             let whitespace =
                 if i+1 == pan.width: '\n'
                 else: ' '
 
-            result.addMulti toDigit(b), whitespace
+            result.addMulti pan.data[i].toDigit, whitespace
 
     else:
         raise newException(ValueError, "not implemented")

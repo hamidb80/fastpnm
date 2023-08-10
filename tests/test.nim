@@ -1,5 +1,5 @@
 import std/[unittest, os, strformat]
-import pan, bitty
+import pan
 
 discard existsOrCreateDir "./temp"
 
@@ -14,22 +14,22 @@ proc exportPan(size: int, m: PanMagic): string =
   fname
 
 
-suite "test for different sizes":
-  for size in [7, 8, 9, 34, 37, 43]:
-    test fmt"test for size-{size}":
-      let
-        p1 = parsePan readFile exportPan(size, bitMapRaw)
-        p4 = parsePan readFile exportPan(size, bitMapBinray)
-
-      check p1.b2 == p4.b2
-
-suite "re-read":
-  test "P1":
-      let
-          before = parsePan readFile exportPan(8, P1)
+suite "tests":
+  for magic in P1..P6:
+    for size in [7, 8, 9, 34, 37, 43, 120]:
+      # test fmt"compare-{size}":
+      #   let
+      #     p1 = parsePan readFile exportPan(size, bitMapRaw)
+      #     p4 = parsePan readFile exportPan(size, bitMapBinray)
+      
+      test fmt"re read {magic} {size}":
+        let
+          before = parsePan readFile exportPan(size, magic)
           aftere = parsePan $before
 
-      check before.b2 == aftere.b2
+        # check before.data
+        # check aftere.data
+        check before.data == aftere.data
 
   # test "P4":
   #     let
@@ -40,4 +40,4 @@ suite "re-read":
   #     check before.b2 == aftere.b2
 
 
-let pgm = parsePan readFile "./temp/aaaaaaaa.pgm"
+  let pgm = parsePan readFile "./temp/aaaaaaaa.pgm"
