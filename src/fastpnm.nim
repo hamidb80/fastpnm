@@ -1,12 +1,3 @@
-# pattern according to https://oceancolor.gsfc.nasa.gov/staff/norman/seawifs_image_cookbook/faux_shuttle/Pan.html
-# magic :: P1/P4
-# whitespace/comment
-# width
-# whitespace/comment
-# height
-# whitespace/comment
-# content :: 0 1
-
 import std/[strutils, parseutils, bitops, macros]
 
 type
@@ -34,6 +25,9 @@ type
     Position* = tuple
         x, y: int
 
+    Color* = tuple
+        r, g, b: uint8
+
 const
     P1* = bitMapRaw
     P2* = grayMapRaw
@@ -49,19 +43,7 @@ const
     uncompressed* = {P1..P3}
     compressed* = {P4..P6}
 
-# ----- utils
-
-func toDigit(b: bool): char =
-    case b
-    of true: '1'
-    of false: '0'
-
-func toDigit(b: byte): char =
-    case b
-    of 1.byte: '1'
-    of 0.byte: '0'
-    else:
-        raise newException(ValueError, "invalid byte value: " & $b.int)
+# ----- meta utility
 
 macro addMulti(wrapper: untyped, elems: varargs[untyped]): untyped =
     result = newStmtList()
@@ -69,11 +51,76 @@ macro addMulti(wrapper: untyped, elems: varargs[untyped]): untyped =
         result.add quote do:
             `wrapper`.add `e`
 
-func checkInRange(pan: Pan, x, y: int): bool =
+template impossible =
+    raise newException(ValueError, "I thought it was impossible")
+
+# ----- private utility
+
+func toDigit(b: bool): char =
+    case b
+    of true: '1'
+    of false: '0'
+
+func inBoard(pan: Pan, x, y: int): bool =
     x in 0 ..< pan.width and
     y in 0 ..< pan.height
 
-# ----- API
+iterator findInts(s: string, offset: int): int =
+    var
+        i = offset
+    while i <= s.high:
+        let ch = s[i]
+        case ch
+        of Whitespace: inc i
+        of Digits:
+            var n: int
+            inc i, parseInt(s, n, i)
+            yield n
+        else:
+            raise newException(ValueError,
+                "expected a digit in data section but got '" & ch &
+                "' ASCii code: " & $ch.ord)
+
+func needsToComplete(n, base: int): int = 
+    let rem = n mod base
+    if rem == 0: 0
+    else: base - rem
+
+func complement(n, base: int): int = 
+    n + needsToComplete(n, base)
+
+iterator findBits(s: string, width, offset: int): tuple[index: int, val: bool] =
+    let
+        diff = needsToComplete(width, 8)
+        widthComplete = complement(width, 8)
+
+    var c = 0
+    for i in offset..s.high:
+        let ch = s[i]
+        case ch
+        of Whitespace: discard
+        of '0', '1':
+            yield (c, ch == '1')
+
+            inc c:
+                if c mod widthComplete == width-1: diff+1
+                else: 1
+        else:
+            raise newException(ValueError,
+                    "expected whitespace or 1/0 but got: " & ch)
+
+func add(s: var seq[byte], index: int, b: bool) =
+    let
+        q = index div 8
+        r = index mod 8
+
+    if s.len <= q:
+        s.setLen q+1
+
+    if b:
+        s[q].setBit 7-r
+
+# ----- utility API
 
 func size*(pan: Pan): int =
     pan.width * pan.height
@@ -84,90 +131,61 @@ func fileExt*(magic: PanMagic): string =
     of grayMap: "pgm"
     of pixMap: "ppm"
 
-iterator findInts(s: string, offset: int): tuple[index, value: int] =
-    var
-        i = offset
-        c = 0
-    while i <= s.high:
-        let ch = s[i]
-        case ch
-        of Whitespace: inc i
-        of Digits:
-            var n: int
-            inc i, parseInt(s, n, i)
-            yield (c, n)
-            inc c
-        else:
-            raise newException(ValueError,
-                "expected a digit in data section but got '" & ch &
-                "' ASCii code: " & $ch.ord)
-
-template impossible =
-    raise newException(ValueError, "I thought it was impossible")
-
-func add(s: var seq[byte], index: int, b: bool) =
-    let
-        q = index div 8
-        r = index mod 8
-
-    if s.len == q:
-        s.add 0.byte
-
-    if b:
-        s[q].setBit 7-r
-
-func parsePanContent(s: string, offset: int, result: var Pan) =
-    case result.magic
-    of uncompressed:
-        for i, n in findInts(s, offset):
-            case result.magic
-            of P1:
-                assert n in 0..1
-                result.data.add(i, n == 1)
-                debugecho (i, n)
-            of P2: discard
-            of P3: discard
-            else: impossible
-    of compressed:
-        result.data = cast[seq[byte]](s[offset..s.high])
-
-
 func getBool*(p: Pan, x, y: int): bool =
-    assert p.checkInRange(x, y)
+    assert p.inBoard(x, y)
     case p.magic
     of bitMap:
         let
-            d = x + y*p.width
+            d = x + y*(p.width.complement 8)
             q = d div 8
             r = d mod 8
         p.data[q].testBit(7-r)
     else:
         raise newException(ValueError, "the magic '" & $p.magic & "' does not have bool value")
 
-# func getGrayScale*(pan: Pan, x, y: int): uint8 =
-#     assert pan.magic in grayMap
-#     assert pan.checkInRange(x, y)
-#     pan.g2[pan.getIndex(x, y)]
-
-# func setGrayScale*(pan: var Pan, x, y: int, b: uint8): uint8 =
-#     assert pan.magic in grayMap
-#     assert pan.checkInRange(x, y)
-#     pan.g2[pan.getIndex(x, y)] = b
-
-# func getColor*(pan: Pan, x, y: int): ColorRgb =
-#     assert pan.magic in pixMap
-#     assert pan.checkInRange(x, y)
-#     pan.p2[pan.getIndex(x, y)]
-
-# func setColor*(pan: var Pan, x, y: int, b: ColorRgb) =
-#     assert pan.magic in pixMap
-#     assert pan.checkInRange(x, y)
-#     pan.p2[pan.getIndex(x, y)] = b
-
 iterator pairsBool*(pan: Pan): tuple[position: Position, value: bool] =
-    for y in 0..<pan.height:
-        for x in 0..<pan.width:
+    for y in 0 ..< pan.height:
+        for x in 0 ..< pan.width:
             yield ((x, y), pan.getBool(x, y))
+
+func getGrayScale*(pan: Pan, x, y: int): uint8 =
+    assert pan.magic in grayMap
+    pan.data[x + y*pan.width]
+
+func setGrayScale*(pan: var Pan, x, y: int, g: uint8): uint8 =
+    assert pan.magic in grayMap
+    pan.data[x+y*pan.width] = g
+
+func getColor*(pan: Pan, x, y: int): Color =
+    assert pan.magic in pixMap
+    let
+        i = 3*(x+y*pan.width)
+        colors = pan.data[i .. i+2]
+    (colors[0], colors[1], colors[2])
+
+func setColor*(pan: var Pan, x, y: int, color: Color) =
+    assert pan.magic in pixMap
+    let i = 3*(x+y*pan.width)
+    pan.data[i+0] = color.r
+    pan.data[i+1] = color.g
+    pan.data[i+2] = color.b
+
+# ----- main API
+
+func parsePanContent(s: string, offset: int, result: var Pan) =
+    case result.magic
+    of P1:
+        for i, b in findBits(s, result.width, offset):
+            result.data.add i, b
+
+    of P2, P3:
+        for n in findInts(s, offset):
+            case result.magic
+            of P2, P3:
+                result.data.add n.byte
+            else: impossible
+    of compressed:
+        result.data = cast[seq[byte]](s[offset..s.high])
 
 func parsePan*(s: string, captureComments = false): Pan =
     var
@@ -211,7 +229,7 @@ func parsePan*(s: string, captureComments = false): Pan =
 
         lastch = ch
 
-func `$`*(pan: Pan, addComments = true): string =
+func `$`*(pan: Pan, dropWhiteSpaces = false, addComments = true): string =
     result.addMulti $pan.magic, '\n'
 
     for c in pan.comments:
@@ -227,12 +245,25 @@ func `$`*(pan: Pan, addComments = true): string =
     of P1:
         for y in 0..<pan.height:
             for x in 0..<pan.width:
-                result.addMulti toDigit pan.getBool(x, y), ' '
+                result.add toDigit pan.getBool(x, y)
+                if not dropWhiteSpaces:
+                    result.add ' '
+            if not dropWhiteSpaces:
+                result.add '\n'
+
+    of P2:
+        for y in 0..<pan.height:
+            for x in 0..<pan.width:
+                result.addMulti $pan.getGrayScale(x, y), ' '
+            result.add '\n'
+
+    of P3:
+        for y in 0..<pan.height:
+            for x in 0..<pan.width:
+                let c = pan.getColor(x, y)
+                result.addMulti $c.r, ' ', $c.g, ' ', $c.b, ' '
             result.add '\n'
 
     of compressed:
         for i in pan.data:
             result.add i.char
-
-    else:
-        raise newException(ValueError, "not implemented")

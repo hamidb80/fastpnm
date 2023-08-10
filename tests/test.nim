@@ -1,5 +1,5 @@
 import std/[unittest, os, strformat]
-import pan
+import fastpnm
 
 discard existsOrCreateDir "./temp"
 
@@ -15,29 +15,18 @@ proc exportPan(size: int, m: PanMagic): string =
 
 
 suite "tests":
-  # for magic in P1..P6:
-  for magic in P1..P1:
-    # for size in [7, 8, 9, 34, 37, 43, 120]:
-    for size in [7]:
-      # test fmt"compare-{size}":
-      #   let
-      #     p1 = parsePan readFile exportPan(size, bitMapRaw)
-      #     p4 = parsePan readFile exportPan(size, bitMapBinray)
-      
-      test fmt"re read {magic} {size}":
+  for size in [7, 8, 9, 34, 37, 43, 120]:
+    for (mraw, mbin) in [(P1, P4), (P2, P5), (P3, P6)]:
+      test fmt"compare {mraw}:{mbin} at {size}x{size}":
         let
-          before = parsePan readFile exportPan(size, magic)
-          aftere = parsePan $before
+          r = parsePan readFile exportPan(size, mraw)
+          b = parsePan readFile exportPan(size, mbin)
+        # echo r
+        check r.data == b.data
 
-        echo before
-
-  # test "P4":
-  #     let
-  #         before = parsePan readFile exportPan(7, P4)
-  #         aftere = parsePan $before
-
-  #     check before.b2.len == aftere.b2.len
-  #     check before.b2 == aftere.b2
-
-
-  let pgm = parsePan readFile "./temp/aaaaaaaa.pgm"
+    for magic in P1..P6:
+      test fmt"re read {magic} at {size}x{size}":
+        let
+          prev = parsePan readFile exportPan(size, magic)
+          next = parsePan $prev
+        check prev.data == next.data

@@ -1,1 +1,7 @@
-read more about `.pbm` [here](https://oceancolor.gsfc.nasa.gov/staff/norman/seawifs_image_cookbook/faux_shuttle/pbm.html). It's part of [Netbpm project](https://en.wikipedia.org/wiki/Netpbm).
+> When you feel afraid or nervous to do a thing, then do it. because the real harm which you may thus receive is less poignant than its expectation and fear - Imam Ali
+
+# fast `.pbm`, `.pgm`, `.ppm`, `.pnm` parser
+read more about [Netbpm project](https://en.wikipedia.org/wiki/Netpbm).
+
+## TODO
+- [ ] add read from file API

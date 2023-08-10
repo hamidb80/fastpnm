@@ -1,8 +1,8 @@
 # Package
 
-version       = "0.0.7"
+version       = "0.1.1"
 author        = "hamidb80"
-description   = "PAN file format parser"
+description   = "fast PNM (.pbm .pgm .ppm) parser"
 license       = "MIT"
 srcDir        = "src"
 
