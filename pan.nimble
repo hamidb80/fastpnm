@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.0.4"
+version       = "0.0.5"
 author        = "hamidb80"
 description   = "PAN file format parser"
 license       = "MIT"

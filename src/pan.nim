@@ -7,7 +7,7 @@
 # whitespace/comment
 # content :: 0 1
 
-import std/[strutils, parseutils, bitops]
+import std/[strutils, parseutils, bitops, math]
 import bitty, chroma
 
 type
@@ -49,6 +49,10 @@ const
     P5* = grayMapBinray
     P6* = pixMapBinray
 
+    bitMap = {bitMapRaw, bitMapBinray}
+    grayMap = {grayMapRaw, grayMapBinray}
+    pixMap = {pixMapRaw, pixMapBinray}
+
 # ----- utils
 
 template addMulti(z, a, b): untyped =
@@ -68,11 +72,6 @@ func toDigit(b: bool): char =
 func addByte(arr: var BitArray, b: byte, cutAfter: range[0..7]) =
     for i in countdown(7, cutAfter):
         arr.add testbit(b, i)
-
-func ceilDiv(n, d: int): int =
-    let t = n div d
-    if n mod d == 0: t
-    else: t + 1
 
 func checkInRange(pan: Pan, x, y: int): bool =
     x in 0 ..< pan.width and
@@ -123,31 +122,32 @@ func parsePanContent*(s: string, offset: int, result: var Pan) =
             raise newException(ValueError, "not implemented")
 
 func getBool*(pan: Pan, x, y: int): bool =
+    assert pan.magic in bitMap
     assert pan.checkInRange(x, y)
     pan.b2[pan.getIndex(x, y)]
 
 func setBool*(pan: var Pan, x, y: int, b: bool) =
-    assert pan.magic in {P1, P4}
+    assert pan.magic in bitMap
     assert pan.checkInRange(x, y)
     pan.b2[pan.getIndex(x, y)] = b
 
 func getGrayScale*(pan: Pan, x, y: int): uint8 =
-    assert pan.magic in {P2, P5}
+    assert pan.magic in grayMap
     assert pan.checkInRange(x, y)
     pan.g2[pan.getIndex(x, y)]
 
 func setGrayScale*(pan: var Pan, x, y: int, b: uint8): uint8 =
-    assert pan.magic in {P2, P5}
+    assert pan.magic in grayMap
     assert pan.checkInRange(x, y)
     pan.g2[pan.getIndex(x, y)] = b
 
 func getColor*(pan: Pan, x, y: int): ColorRgb =
-    assert pan.magic in {P3, P6}
+    assert pan.magic in pixMap
     assert pan.checkInRange(x, y)
     pan.p2[pan.getIndex(x, y)]
 
 func setColor*(pan: var Pan, x, y: int, b: ColorRgb) =
-    assert pan.magic in {P3, P6}
+    assert pan.magic in pixMap
     assert pan.checkInRange(x, y)
     pan.p2[pan.getIndex(x, y)] = b
 
@@ -176,7 +176,6 @@ func parsePan*(s: string, captureComments = false): Pan =
             of ppsMagic:
                 var word: string
                 inc i, s.parseIdent(word, i)
-                debugecho word.toUpperAscii
                 result = Pan(magic: parseEnum[PanMagic](word.toUpperAscii))
                 inc state
 
