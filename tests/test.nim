@@ -12,7 +12,7 @@ proc exportPan(size: int, m: PanMagic): string =
   let
     fname = fmt"./temp/arrow-{size}-{m}.{fileExt(m)}"
     extra = case m
-      of compressed: "-compress none"
+      of uncompressed: "-compress none"
       else: ""
 
   discard execShellCmd fmt"convert {extra} -flatten -background white -alpha remove -resize {size}x{size} ./examples/arrow.png {fname}"
