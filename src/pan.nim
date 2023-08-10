@@ -42,17 +42,11 @@ const
     P5* = grayMapBinray
     P6* = pixMapBinray
 
-    bitMap = {bitMapRaw, bitMapBinray}
-    grayMap = {grayMapRaw, grayMapBinray}
-    pixMap = {pixMapRaw, pixMapBinray}
+    bitMap* = {bitMapRaw, bitMapBinray}
+    grayMap* = {grayMapRaw, grayMapBinray}
+    pixMap* = {pixMapRaw, pixMapBinray}
 
 # ----- utils
-
-macro addMulti(wrapper: untyped, elems: varargs[untyped]): untyped =
-    result = newStmtList()
-    for e in elems:
-        result.add quote do:
-            `wrapper`.add `e`
 
 func toDigit(b: bool): char =
     case b
@@ -68,21 +62,28 @@ func toDigit(b: byte): char =
 
 func addByte(arr: var seq[byte], b: byte, cutAfter: range[0..7]) =
     for i in countdown(7, cutAfter):
-        # arr.add testbit(b, i)
-        # TODO
-        discard
+        arr.add testbit(b, i).byte
+
+macro addMulti(wrapper: untyped, elems: varargs[untyped]): untyped =
+    result = newStmtList()
+    for e in elems:
+        result.add quote do:
+            `wrapper`.add `e`
 
 func checkInRange(pan: Pan, x, y: int): bool =
     x in 0 ..< pan.width and
     y in 0 ..< pan.height
 
-func code*(pm: PanMagic): range[1..6] =
-    pm.ord + 1
+# ----- API
 
 func size*(pan: Pan): int =
     pan.width * pan.height
 
-# ----- API
+func fileExt*(magic: PanMagic): string = 
+    case magic
+    of bitMap: "pbm"
+    of grayMap: "pgm"
+    of pixMap: "ppm"
 
 func parsePanContent*(s: string, offset: int, result: var Pan) =
     let
@@ -168,7 +169,7 @@ func parsePan*(s: string, captureComments = false): Pan =
         if (lastCh in Newlines) and (ch == '#'):
             let newi = s.find('\n', i+1)
             if captureComments:
-                result.comments.add s[i+1 ..< newi]
+                result.comments.add strip s[i+1 ..< newi]
             i = newi
         elif ch in Whitespace: inc i
         else:
@@ -202,7 +203,7 @@ func `$`*(pan: Pan, addComments = true): string =
     result.addMulti $pan.magic, '\n'
 
     for c in pan.comments:
-        result.addMulti '#', $pan.magic, '\n'
+        result.addMulti '#', ' ', $pan.magic, '\n'
 
     result.addMulti $pan.width, ' '
     result.addMulti $pan.height, '\n'
@@ -214,7 +215,7 @@ func `$`*(pan: Pan, addComments = true): string =
                 if i+1 == pan.width: '\n'
                 else: ' '
 
-            result.addMulti pan.data[i].toDigit, whitespace
+            result.addMulti toDigit pan.data[i], whitespace
 
     else:
         raise newException(ValueError, "not implemented")

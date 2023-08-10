@@ -5,9 +5,9 @@ discard existsOrCreateDir "./temp"
 
 proc exportPan(size: int, m: PanMagic): string =
   let
-    fname = fmt"./temp/arrow-{size}-{m}.pbm"
-    extra = case m.code
-      of 1: "-compress none"
+    fname = fmt"./temp/arrow-{size}-{m}.{fileExt(m)}"
+    extra = case m
+      of P1, P2, P3: "-compress none"
       else: ""
 
   discard execShellCmd fmt"convert {extra} -flatten -background white -alpha remove -resize {size}x{size} ./examples/arrow.png {fname}"
@@ -27,8 +27,6 @@ suite "tests":
           before = parsePan readFile exportPan(size, magic)
           aftere = parsePan $before
 
-        # check before.data
-        # check aftere.data
         check before.data == aftere.data
 
   # test "P4":
