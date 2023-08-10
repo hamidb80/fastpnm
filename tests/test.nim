@@ -8,7 +8,7 @@ template checkSame(a, b): untyped =
   check a.maxValue == b.maxValue
   check a.data == b.data
 
-proc exportPan(size: int, m: PanMagic): string =
+proc exportPnm(size: int, m: PnmMagic): string =
   let
     fname = fmt"./temp/arrow-{size}-{m}.{fileExt(m)}"
     extra = case m
@@ -26,14 +26,14 @@ suite "tests":
     for (mraw, mbin) in [(P1, P4), (P2, P5), (P3, P6)]:
       test fmt"compare {mraw}:{mbin} at {size}x{size}":
         let
-          r = parsePan readFile exportPan(size, mraw)
-          b = parsePan readFile exportPan(size, mbin)
+          r = parsePnm readFile exportPnm(size, mraw)
+          b = parsePnm readFile exportPnm(size, mbin)
         checkSame r, b
 
     for magic in P1..P6:
       test fmt"re read {magic} at {size}x{size}":
         let
-          prev = parsePan readFile exportPan(size, magic)
-          next = parsePan $prev
+          prev = parsePnm readFile exportPnm(size, magic)
+          next = parsePnm $prev
         checkSame prev, next
 

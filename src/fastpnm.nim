@@ -1,14 +1,14 @@
 import std/[strutils, parseutils, bitops, macros]
 
 type
-    PanParserState = enum
+    PnmParserState = enum
         ppsMagic
         ppsWidth
         ppsHeight
         ppsMaxVal
         ppsContent
 
-    PanMagic* = enum
+    PnmMagic* = enum
         bitMapRaw = "P1"
         grayMapRaw = "P2"
         pixMapRaw = "P3"
@@ -16,8 +16,8 @@ type
         grayMapBinray = "P5"
         pixMapBinray = "P6"
 
-    Pan* = object
-        magic*: PanMagic
+    Pnm* = object
+        magic*: PnmMagic
         width*, height*, maxValue*: Natural
         comments*: seq[string]
         data*: seq[byte]
@@ -61,9 +61,9 @@ func toDigit(b: bool): char =
     of true: '1'
     of false: '0'
 
-func inBoard(pan: Pan, x, y: int): bool =
-    x in 0 ..< pan.width and
-    y in 0 ..< pan.height
+func inBoard(pnm: Pnm, x, y: int): bool =
+    x in 0 ..< pnm.width and
+    y in 0 ..< pnm.height
 
 iterator findInts(s: string, offset: int): int =
     var
@@ -122,16 +122,16 @@ func add(s: var seq[byte], index: int, b: bool) =
 
 # ----- utility API
 
-func size*(pan: Pan): int =
-    pan.width * pan.height
+func size*(pnm: Pnm): int =
+    pnm.width * pnm.height
 
-func fileExt*(magic: PanMagic): string =
+func fileExt*(magic: PnmMagic): string =
     case magic
     of bitMap: "pbm"
     of grayMap: "pgm"
     of pixMap: "ppm"
 
-func getBool*(p: Pan, x, y: int): bool =
+func getBool*(p: Pnm, x, y: int): bool =
     assert p.inBoard(x, y)
     case p.magic
     of bitMap:
@@ -143,36 +143,36 @@ func getBool*(p: Pan, x, y: int): bool =
     else:
         raise newException(ValueError, "the magic '" & $p.magic & "' does not have bool value")
 
-iterator pairsBool*(pan: Pan): tuple[position: Position, value: bool] =
-    for y in 0 ..< pan.height:
-        for x in 0 ..< pan.width:
-            yield ((x, y), pan.getBool(x, y))
+iterator pairsBool*(pnm: Pnm): tuple[position: Position, value: bool] =
+    for y in 0 ..< pnm.height:
+        for x in 0 ..< pnm.width:
+            yield ((x, y), pnm.getBool(x, y))
 
-func getGrayScale*(pan: Pan, x, y: int): uint8 =
-    assert pan.magic in grayMap
-    pan.data[x + y*pan.width]
+func getGrayScale*(pnm: Pnm, x, y: int): uint8 =
+    assert pnm.magic in grayMap
+    pnm.data[x + y*pnm.width]
 
-func setGrayScale*(pan: var Pan, x, y: int, g: uint8): uint8 =
-    assert pan.magic in grayMap
-    pan.data[x+y*pan.width] = g
+func setGrayScale*(pnm: var Pnm, x, y: int, g: uint8): uint8 =
+    assert pnm.magic in grayMap
+    pnm.data[x+y*pnm.width] = g
 
-func getColor*(pan: Pan, x, y: int): Color =
-    assert pan.magic in pixMap
+func getColor*(pnm: Pnm, x, y: int): Color =
+    assert pnm.magic in pixMap
     let
-        i = 3*(x+y*pan.width)
-        colors = pan.data[i .. i+2]
+        i = 3*(x+y*pnm.width)
+        colors = pnm.data[i .. i+2]
     (colors[0], colors[1], colors[2])
 
-func setColor*(pan: var Pan, x, y: int, color: Color) =
-    assert pan.magic in pixMap
-    let i = 3*(x+y*pan.width)
-    pan.data[i+0] = color.r
-    pan.data[i+1] = color.g
-    pan.data[i+2] = color.b
+func setColor*(pnm: var Pnm, x, y: int, color: Color) =
+    assert pnm.magic in pixMap
+    let i = 3*(x+y*pnm.width)
+    pnm.data[i+0] = color.r
+    pnm.data[i+1] = color.g
+    pnm.data[i+2] = color.b
 
 # ----- main API
 
-func parsePanContent(s: string, offset: int, result: var Pan) =
+func parsePnmContent(s: string, offset: int, result: var Pnm) =
     case result.magic
     of P1:
         for i, b in findBits(s, result.width, offset):
@@ -187,7 +187,7 @@ func parsePanContent(s: string, offset: int, result: var Pan) =
     of compressed:
         result.data = cast[seq[byte]](s[offset..s.high])
 
-func parsePan*(s: string, captureComments = false): Pan =
+func parsePnm*(s: string, captureComments = false): Pnm =
     var
         lastCh = '\n'
         i = 0
@@ -207,7 +207,7 @@ func parsePan*(s: string, captureComments = false): Pan =
             of ppsMagic:
                 var word: string
                 inc i, s.parseIdent(word, i)
-                result.magic = parseEnum[PanMagic](word.toUpperAscii)
+                result.magic = parseEnum[PnmMagic](word.toUpperAscii)
                 inc state
 
             of ppsWidth:
@@ -226,46 +226,46 @@ func parsePan*(s: string, captureComments = false): Pan =
                 inc state
 
             of ppsContent:
-                parsePanContent s, i, result
+                parsePnmContent s, i, result
                 break
 
         lastch = ch
 
-func `$`*(pan: Pan, dropWhiteSpaces = false, addComments = true): string =
-    result.addMulti $pan.magic, '\n'
+func `$`*(pnm: Pnm, dropWhiteSpaces = false, addComments = true): string =
+    result.addMulti $pnm.magic, '\n'
 
-    for c in pan.comments:
-        result.addMulti '#', ' ', $pan.magic, '\n'
+    for c in pnm.comments:
+        result.addMulti '#', ' ', $pnm.magic, '\n'
 
-    result.addMulti $pan.width, ' '
-    result.addMulti $pan.height, '\n'
+    result.addMulti $pnm.width, ' '
+    result.addMulti $pnm.height, '\n'
 
-    if pan.magic notin bitMap:
-        result.addMulti $pan.maxValue, '\n'
+    if pnm.magic notin bitMap:
+        result.addMulti $pnm.maxValue, '\n'
 
-    case pan.magic
+    case pnm.magic
     of P1:
-        for y in 0..<pan.height:
-            for x in 0..<pan.width:
-                result.add toDigit pan.getBool(x, y)
+        for y in 0..<pnm.height:
+            for x in 0..<pnm.width:
+                result.add toDigit pnm.getBool(x, y)
                 if not dropWhiteSpaces:
                     result.add ' '
             if not dropWhiteSpaces:
                 result.add '\n'
 
     of P2:
-        for y in 0..<pan.height:
-            for x in 0..<pan.width:
-                result.addMulti $pan.getGrayScale(x, y), ' '
+        for y in 0..<pnm.height:
+            for x in 0..<pnm.width:
+                result.addMulti $pnm.getGrayScale(x, y), ' '
             result.add '\n'
 
     of P3:
-        for y in 0..<pan.height:
-            for x in 0..<pan.width:
-                let c = pan.getColor(x, y)
+        for y in 0..<pnm.height:
+            for x in 0..<pnm.width:
+                let c = pnm.getColor(x, y)
                 result.addMulti $c.r, ' ', $c.g, ' ', $c.b, ' '
             result.add '\n'
 
     of compressed:
-        for i in pan.data:
+        for i in pnm.data:
             result.add i.char
