@@ -1,5 +1,5 @@
 import std/[unittest, os, strformat]
-import pbm, bitty
+import pan, bitty
 
 discard existsOrCreateDir "./temp"
 
