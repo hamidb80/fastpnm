@@ -47,21 +47,17 @@ func addByte(arr: var BitArray, b: byte, cutAfter: range[0..7]) =
     for i in countdown(7, cutAfter):
         arr.add testbit(b, i)
 
-# iterator bytes(arr: BitArray): byte =
-#     var acc: int8
-#     for i, b in arr:
-#         if i mod 8 == 0:
-#             if i != 0: 
-#                 yield cast[byte](acc)
-#             acc = 0
-        
-#         if b:
-#             acc.setBit 7 - i mod 8
-
-func ceilDiv(n, d: int): int = 
+func ceilDiv(n, d: int): int =
     let t = n div d
     if n mod d == 0: t
     else: t + 1
+
+func checkInRange(pbm: Pbm, x, y: int): bool =
+    x in 0 ..< pbm.width and
+    y in 0 ..< pbm.height
+
+func getIndex(pbm: Pbm, x, y: int): int =
+    y*pbm.width + x
 
 # ----- API
 
@@ -69,7 +65,7 @@ func parsePbmContent*(s: string, offset: int, result: var Pbm) =
     let
         size = s.len - offset
         extraBits = result.width mod 8
-        bytesRow = result.width.ceilDiv  8
+        bytesRow = result.width.ceilDiv 8
 
         limit =
             if extraBits == 0: 0
@@ -95,6 +91,13 @@ func parsePbmContent*(s: string, offset: int, result: var Pbm) =
 
             result.data.addByte cast[byte](ch), cut
 
+func `[]`*(pbm: Pbm, x, y: int): bool =
+    assert pbm.checkInRange(x, y)
+    pbm.data[pbm.getIndex(x, y)]
+
+func `[]=`*(pbm: Pbm, x, y: int, b: bool): bool =
+    assert pbm.checkInRange(x, y)
+    pbm.data[pbm.getIndex(x, y)] = b
 
 func parsePbm*(s: string, captureComments = false): Pbm =
     var
@@ -155,7 +158,7 @@ func `$`*(pbm: Pbm, addComments = true): string =
 
             result.addMulti toDigit(b), whitespace
 
-    of P4: 
+    of P4:
         # let cd = pbm.data.len.ceilDiv 8
         # for i, b in pbm.data:
         #     result.add cast[char](b)
