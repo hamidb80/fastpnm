@@ -1,0 +1,4 @@
+.vscode
+play.*
+*.exe
+/temp
