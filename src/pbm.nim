@@ -27,6 +27,9 @@ type
         comments*: seq[string]
         data*: BitArray
 
+    Position* = tuple
+        x, y: int
+
 # ----- utils
 
 template addMulti(z, a, b): untyped =
@@ -98,6 +101,11 @@ func `[]`*(pbm: Pbm, x, y: int): bool =
 func `[]=`*(pbm: Pbm, x, y: int, b: bool): bool =
     assert pbm.checkInRange(x, y)
     pbm.data[pbm.getIndex(x, y)] = b
+
+iterator pairs*(pbm: Pbm): tuple[position: Position, value: bool] = 
+    for y in 0..<pbm.height:
+        for x in 0..<pbm.width:
+            yield ((x, y), pbm[x, y])
 
 func parsePbm*(s: string, captureComments = false): Pbm =
     var
