@@ -2,4 +2,4 @@
 play.*
 *.exe
 /temp
-/test/test
+/tests/test

@@ -1,4 +1,4 @@
-# pattern according to https://oceancolor.gsfc.nasa.gov/staff/norman/seawifs_image_cookbook/faux_shuttle/pbm.html
+# pattern according to https://oceancolor.gsfc.nasa.gov/staff/norman/seawifs_image_cookbook/faux_shuttle/Pan.html
 # magic :: P1/P4
 # whitespace/comment
 # width
@@ -8,27 +8,48 @@
 # content :: 0 1
 
 import std/[strutils, parseutils, bitops]
-import bitty
+import bitty, chroma
 
 type
-    PbmParserState = enum
+    PanParserState = enum
         ppsMagic
         ppsWidth
         ppsHeight
+        ppsMaxVal
         ppsContent
 
-    PbmMagic* = enum
-        P1 ## uncompressed :: each bit as a single char `1` or `0`
-        P4 ## compressed :: stored i n byte like `10101011`
+    PanMagic* = enum
+        bitMapRaw = "P1"
+        grayMapRaw = "P2"
+        pixMapRaw = "P3"
+        bitMapBinray = "P4"
+        grayMapBinray = "P5"
+        pixMapBinray = "P6"
 
-    Pbm* = object
-        magic*: PbmMagic
-        width*, height*: Natural
+    Matrix*[T] = distinct seq[T]
+
+    Pan* = object
+        width*, height*, maxValue*: Natural
         comments*: seq[string]
-        data*: BitArray
+
+        case magic*: PanMagic
+        of bitMapRaw, bitMapBinray:
+            b2*: BitArray
+        of grayMapRaw, grayMapBinray:
+            g2*: Matrix[uint8]
+        of pixMapRaw, pixMapBinray:
+            p2*: Matrix[ColorRGB]
 
     Position* = tuple
         x, y: int
+
+const
+    P1* = bitMapRaw
+    P2* = grayMapRaw
+    P3* = pixMapRaw
+    P4* = bitMapBinray
+    P5* = grayMapBinray
+    P6* = pixMapBinray
 
 # ----- utils
 
@@ -55,16 +76,18 @@ func ceilDiv(n, d: int): int =
     if n mod d == 0: t
     else: t + 1
 
-func checkInRange(pbm: Pbm, x, y: int): bool =
-    x in 0 ..< pbm.width and
-    y in 0 ..< pbm.height
+func checkInRange(pan: Pan, x, y: int): bool =
+    x in 0 ..< pan.width and
+    y in 0 ..< pan.height
 
-func getIndex(pbm: Pbm, x, y: int): int =
-    y*pbm.width + x
+func getIndex(pan: Pan, x, y: int): int =
+    y*pan.width + x
+
+func code*(pm: PanMagic): range[1..6] = pm.ord + 1
 
 # ----- API
 
-func parsePbmContent*(s: string, offset: int, result: var Pbm) =
+func parsePanContent*(s: string, offset: int, result: var Pan) =
     let
         size = s.len - offset
         extraBits = result.width mod 8
@@ -77,37 +100,41 @@ func parsePbmContent*(s: string, offset: int, result: var Pbm) =
 
     for i in 0 ..< size:
         let ch = s[i + offset]
-        case result.magic
-        of P1:
+        case result.magic.code
+        of 1:
             case ch
             of Whitespace: discard
-            of '1': result.data.add true
-            of '0': result.data.add false
+            of '1': result.b2.add true
+            of '0': result.b2.add false
             else: raise newException(ValueError,
                     "expected 1 or 0 in data section but got '" & ch & '\'')
 
-        of P4:
+        of 4:
             let
                 cut =
                     if i mod bytesRow == bytesRow-1: limit
                     else: 0
 
-            result.data.addByte cast[byte](ch), cut
+            result.b2.addByte cast[byte](ch), cut
+        
+        else:
+            raise newException(ValueError, "not implemented")
 
-func `[]`*(pbm: Pbm, x, y: int): bool =
-    assert pbm.checkInRange(x, y)
-    pbm.data[pbm.getIndex(x, y)]
+func getBool*(pan: Pan, x, y: int): bool =
+    assert pan.checkInRange(x, y)
+    pan.b2[pan.getIndex(x, y)]
 
-func `[]=`*(pbm: Pbm, x, y: int, b: bool): bool =
-    assert pbm.checkInRange(x, y)
-    pbm.data[pbm.getIndex(x, y)] = b
+func setBool*(pan: Pan, x, y: int, b: bool): bool =
+    assert pan.magic.code in [1, 4]
+    assert pan.checkInRange(x, y)
+    pan.b2[pan.getIndex(x, y)] = b
 
-iterator pairs*(pbm: Pbm): tuple[position: Position, value: bool] = 
-    for y in 0..<pbm.height:
-        for x in 0..<pbm.width:
-            yield ((x, y), pbm[x, y])
+iterator pairsBool*(pan: Pan): tuple[position: Position, value: bool] =
+    for y in 0..<pan.height:
+        for x in 0..<pan.width:
+            yield ((x, y), pan.getBool(x, y))
 
-func parsePbm*(s: string, captureComments = false): Pbm =
+func parsePan*(s: string, captureComments = false): Pan =
     var
         lastCh = '\n'
         i = 0.Natural
@@ -128,8 +155,8 @@ func parsePbm*(s: string, captureComments = false): Pbm =
                 var word: string
                 inc i, s.parseIdent(word, i)
                 case word.toUpperAscii
-                of "P1": result.magic = P1
-                of "P4": result.magic = P4
+                of "P1": result.magic = bitMapRaw
+                of "P4": result.magic = bitMapBinray
                 else: raise newException(ValueError, "invalid magic: '" & ch & '\'')
                 inc state
 
@@ -141,33 +168,34 @@ func parsePbm*(s: string, captureComments = false): Pbm =
                 inc i, s.parseInt(result.height, i)
                 inc state
 
+            of ppsMaxVal:
+                # if resize.magic in [P1, P2]:
+                inc state
+
             of ppsContent:
-                result.data = newBitArray()
-                parsePbmContent s, i, result
+                result.b2 = newBitArray()
+                parsePanContent s, i, result
                 break
 
         lastch = ch
 
-func `$`*(pbm: Pbm, addComments = true): string =
-    result.addMulti $pbm.magic, '\n'
+func `$`*(pan: Pan, addComments = true): string =
+    result.addMulti $pan.magic, '\n'
 
-    for c in pbm.comments:
-        result.addMulti '#', $pbm.magic, '\n'
+    for c in pan.comments:
+        result.addMulti '#', $pan.magic, '\n'
 
-    result.addMulti $pbm.width, ' '
-    result.addMulti $pbm.height, '\n'
+    result.addMulti $pan.width, ' '
+    result.addMulti $pan.height, '\n'
 
-    case pbm.magic
-    of P1:
-        for i, b in pbm.data:
+    case pan.magic.code
+    of 1:
+        for i, b in pan.b2:
             let whitespace =
-                if i+1 == pbm.width: '\n'
+                if i+1   == pan.width: '\n'
                 else: ' '
 
             result.addMulti toDigit(b), whitespace
 
-    of P4:
-        # let cd = pbm.data.len.ceilDiv 8
-        # for i, b in pbm.data:
-        #     result.add cast[char](b)
+    else:
         raise newException(ValueError, "not implemented")
