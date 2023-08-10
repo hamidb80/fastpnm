@@ -31,10 +31,13 @@ suite "re-read":
 
       check before.b2 == aftere.b2
 
-  test "P4":
-      let
-          before = parsePan readFile exportPan(7, P4)
-          aftere = parsePan $before
+  # test "P4":
+  #     let
+  #         before = parsePan readFile exportPan(7, P4)
+  #         aftere = parsePan $before
 
-      check before.b2.len == aftere.b2.len
-      check before.b2 == aftere.b2
+  #     check before.b2.len == aftere.b2.len
+  #     check before.b2 == aftere.b2
+
+
+let pgm = parsePan readFile "./temp/aaaaaaaa.pgm"

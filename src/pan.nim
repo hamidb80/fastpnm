@@ -26,8 +26,6 @@ type
         grayMapBinray = "P5"
         pixMapBinray = "P6"
 
-    Matrix*[T] = distinct seq[T]
-
     Pan* = object
         width*, height*, maxValue*: Natural
         comments*: seq[string]
@@ -36,9 +34,9 @@ type
         of bitMapRaw, bitMapBinray:
             b2*: BitArray
         of grayMapRaw, grayMapBinray:
-            g2*: Matrix[uint8]
+            g2*: seq[uint8]
         of pixMapRaw, pixMapBinray:
-            p2*: Matrix[ColorRGB]
+            p2*: seq[ColorRGB]
 
     Position* = tuple
         x, y: int
@@ -83,7 +81,11 @@ func checkInRange(pan: Pan, x, y: int): bool =
 func getIndex(pan: Pan, x, y: int): int =
     y*pan.width + x
 
-func code*(pm: PanMagic): range[1..6] = pm.ord + 1
+func code*(pm: PanMagic): range[1..6] =
+    pm.ord + 1
+
+func size*(pan: Pan): int =
+    pan.width * pan.height
 
 # ----- API
 
@@ -100,8 +102,8 @@ func parsePanContent*(s: string, offset: int, result: var Pan) =
 
     for i in 0 ..< size:
         let ch = s[i + offset]
-        case result.magic.code
-        of 1:
+        case result.magic
+        of P1:
             case ch
             of Whitespace: discard
             of '1': result.b2.add true
@@ -109,14 +111,14 @@ func parsePanContent*(s: string, offset: int, result: var Pan) =
             else: raise newException(ValueError,
                     "expected 1 or 0 in data section but got '" & ch & '\'')
 
-        of 4:
+        of P4:
             let
                 cut =
                     if i mod bytesRow == bytesRow-1: limit
                     else: 0
 
             result.b2.addByte cast[byte](ch), cut
-        
+
         else:
             raise newException(ValueError, "not implemented")
 
@@ -124,10 +126,30 @@ func getBool*(pan: Pan, x, y: int): bool =
     assert pan.checkInRange(x, y)
     pan.b2[pan.getIndex(x, y)]
 
-func setBool*(pan: Pan, x, y: int, b: bool): bool =
-    assert pan.magic.code in [1, 4]
+func setBool*(pan: var Pan, x, y: int, b: bool) =
+    assert pan.magic in {P1, P4}
     assert pan.checkInRange(x, y)
     pan.b2[pan.getIndex(x, y)] = b
+
+func getGrayScale*(pan: Pan, x, y: int): uint8 =
+    assert pan.magic in {P2, P5}
+    assert pan.checkInRange(x, y)
+    pan.g2[pan.getIndex(x, y)]
+
+func setGrayScale*(pan: var Pan, x, y: int, b: uint8): uint8 =
+    assert pan.magic in {P2, P5}
+    assert pan.checkInRange(x, y)
+    pan.g2[pan.getIndex(x, y)] = b
+
+func getColor*(pan: Pan, x, y: int): ColorRgb =
+    assert pan.magic in {P3, P6}
+    assert pan.checkInRange(x, y)
+    pan.p2[pan.getIndex(x, y)]
+
+func setColor*(pan: var Pan, x, y: int, b: ColorRgb) =
+    assert pan.magic in {P3, P6}
+    assert pan.checkInRange(x, y)
+    pan.p2[pan.getIndex(x, y)] = b
 
 iterator pairsBool*(pan: Pan): tuple[position: Position, value: bool] =
     for y in 0..<pan.height:
@@ -154,10 +176,8 @@ func parsePan*(s: string, captureComments = false): Pan =
             of ppsMagic:
                 var word: string
                 inc i, s.parseIdent(word, i)
-                case word.toUpperAscii
-                of "P1": result.magic = bitMapRaw
-                of "P4": result.magic = bitMapBinray
-                else: raise newException(ValueError, "invalid magic: '" & ch & '\'')
+                debugecho word.toUpperAscii
+                result = Pan(magic: parseEnum[PanMagic](word.toUpperAscii))
                 inc state
 
             of ppsWidth:
@@ -169,11 +189,16 @@ func parsePan*(s: string, captureComments = false): Pan =
                 inc state
 
             of ppsMaxVal:
-                # if resize.magic in [P1, P2]:
+                if result.magic notin {P1, P4}:
+                    inc i, s.parseInt(result.maxValue, i)
                 inc state
 
             of ppsContent:
-                result.b2 = newBitArray()
+                case result.magic
+                of P1, P4:
+                    result.b2 = newBitArray()
+                else:
+                    discard
                 parsePanContent s, i, result
                 break
 
@@ -188,11 +213,11 @@ func `$`*(pan: Pan, addComments = true): string =
     result.addMulti $pan.width, ' '
     result.addMulti $pan.height, '\n'
 
-    case pan.magic.code
-    of 1:
+    case pan.magic
+    of P1:
         for i, b in pan.b2:
             let whitespace =
-                if i+1   == pan.width: '\n'
+                if i+1 == pan.width: '\n'
                 else: ' '
 
             result.addMulti toDigit(b), whitespace
