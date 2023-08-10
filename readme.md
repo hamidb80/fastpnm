@@ -1,1 +1,1 @@
-read more about `.pbm` [here](https://oceancolor.gsfc.nasa.gov/staff/norman/seawifs_image_cookbook/faux_shuttle/pbm.html)
+read more about `.pbm` [here](https://oceancolor.gsfc.nasa.gov/staff/norman/seawifs_image_cookbook/faux_shuttle/pbm.html). It's part of [Netbpm project](https://en.wikipedia.org/wiki/Netpbm).
