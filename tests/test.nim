@@ -1,4 +1,4 @@
-import std/[unittest, os, strformat, sequtils]
+import std/[unittest, os, strformat, sequtils, strutils]
 import fastpnm
 
 
@@ -19,6 +19,8 @@ proc exportPnm(size: int, m: PnmMagic): string =
   fname
 
 func c(r, g, b: uint8): Color = (r, g, b)
+func `$`(c: Color): string =
+  c.r.toHex & c.g.toHex & c.b.toHex
 
 
 suite "raw & binary":
@@ -90,3 +92,19 @@ suite "special cases":
       img2 = parsePnm readfile "./examples/p3_spaces.ppm"
 
     checkSame img1, img2
+
+suite "other":
+  const
+    T = true
+    F = false
+
+  test "from2d":
+    let p = from2d @[
+      @[T, T, F, T, F, F, T, T, F, T],
+      @[F, F, T, F, T, T, F, F, T, T],
+      @[T, T, F, F, T, F, T, T, F, F]]
+
+    check cast[seq[uint8]](p.data) == @[
+      0b11010011'u8, 0b01000000'u8,
+      0b00101100'u8, 0b11000000'u8,
+      0b11001011'u8, 0b00000000'u8]

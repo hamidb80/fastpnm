@@ -145,12 +145,17 @@ func binaryPosition(pnm: Pnm, x, y: Natural
 ): tuple[globalByteIndex, reverseBitIndex: int] =
     pnm.binaryPosition x+y*pnm.width
 
-func add*(pnm: var Pnm, v: bool) =
+func add*(pnm: var Pnm, b: bool) =
     let (gbi, rbi) = pnm.binaryPosition(pnm.filled)
     pnm.data.setlen gbi+1
     inc pnm.filled
-    if v:
+    if b:
         pnm.data[gbi].setBit(rbi)
+
+func add*(pnm: var Pnm, c: Color) =
+    pnm.data.add c.r
+    pnm.data.add c.g
+    pnm.data.add c.b
 
 const commonPnmExt* = ".pnm"
 func fileExt*(magic: PnmMagic): string =
@@ -214,24 +219,47 @@ func setColor*(pnm: var Pnm, x, y: int, color: Color) =
     pnm.data[i+2] = color.b
 
 func get2d*[T: bool or int or Color](pnm: Pnm): seq[seq[T]] =
+    ## generates 2D representaion of stored data
+    result.setLen pnm.height
+
     when T is bool:
         for y in 0..<pnm.height:
-            result.add @[]
             for x in 0..<pnm.width:
-                result[^1].add pnm.getBool(x, y)
+                result[y].add pnm.getBool(x, y)
 
     elif T is int:
         for y in 0..<pnm.height:
-            result.add @[]
             for x in 0..<pnm.width:
-                result[^1].add pnm.getGrayScale(x, y)
+                result[y].add pnm.getGrayScale(x, y)
 
     else:
         for y in 0..<pnm.height:
-            result.add @[]
             for x in 0..<pnm.width:
-                result[^1].add pnm.getColor(x, y)
+                result[y].add pnm.getColor(x, y)
 
+func from2d*[T: bool or int or Color](mat: seq[seq[T]], compress = true): Pnm =
+    let
+        h = mat.len
+        w = mat[0].len
+
+    result.width = w
+    result.height = h
+
+    result.magic =
+        when T is bool:
+            if compress: P4
+            else: P1
+        elif T is uint8:
+            if compress: P5
+            else: P2
+        else:
+            if compress: P6
+            else: P3
+
+    for y in 0..<h:
+        for x in 0..<w:
+            let t = mat[y][x]
+            result.add t
 
 # ----- main API
 
