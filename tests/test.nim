@@ -62,7 +62,6 @@ suite "correctness":
       (2, 7),
       (3, 7)]
 
-
   test "P2":
     let
       pgm = parsePnm readFile "./examples/4x6.pgm"
@@ -72,10 +71,25 @@ suite "correctness":
     check pgm.getGrayScale(3, 1) == 7
 
   test "P3":
-    let ppm = parsePnm readFile "./examples/wikipedia.ppm"
+    let ppm = parsePnm readFile "./examples/colorful.ppm"
     check ppm.getColor(0, 0) == c(255, 0, 0)
     check ppm.getColor(1, 0) == c(0, 255, 0)
     check ppm.getColor(2, 0) == c(0, 0, 255)
     check ppm.getColor(0, 1) == c(255, 255, 0)
     check ppm.getColor(1, 1) == c(255, 255, 255)
     check ppm.getColor(2, 1) == c(0, 0, 0)
+
+suite "special cases":
+  test "P1 no space":
+    let
+      j1 = parsePnm readfile "./examples/j.pbm"
+      j2 = parsePnm readfile "./examples/j_no_space.pbm"
+
+    check j1.data == j2.data
+
+  test "P3 variant spaces":
+    let
+      img1 = parsePnm readfile "./examples/p3_lines.ppm"
+      img2 = parsePnm readfile "./examples/p3_spaces.ppm"
+
+    checkSame img1, img2
