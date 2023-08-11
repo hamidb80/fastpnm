@@ -2,21 +2,24 @@ import std/[unittest, os, strformat, sequtils, strutils]
 import fastpnm
 
 
-template checkSame(a, b): untyped =
+template checkSame(a, b): untyped {.dirty.} =
   check a.width == b.width
   check a.height == b.height
   check a.maxValue == b.maxValue
   check a.comment == b.comment
-  assert a.data == b.data
+  check a.data == b.data
 
 proc exportPnm(size: int, m: PnmMagic): string =
   let
     fname = fmt"./temp/arrow-{size}-{m}.{fileExt(m)}"
+    app =
+      when defined windows: "magick.exe convert"
+      else: "convert"
     extra = case m
       of uncompressed: "-compress none"
       else: ""
 
-  discard execShellCmd fmt"convert {extra} -flatten -background white -alpha remove -resize {size}x{size} ./examples/arrow.png {fname}"
+  discard execShellCmd fmt"{app} {extra} -flatten -background white -alpha remove -resize {size}x{size} ./examples/arrow.png {fname}"
   fname
 
 func c(r, g, b: uint8): Color = (r, g, b)
@@ -68,10 +71,15 @@ suite "correctness":
   test "P2":
     let
       pgm = parsePnm readFile "./examples/4x6.pgm"
-      numbers = cast[seq[uint8]](pgm.data)
-    check numbers == toseq(0'u8 .. 23'u8)
-    check pgm.getGrayScale(1, 5) == 21
-    check pgm.getGrayScale(3, 1) == 7
+      numbers = get2d[int](pgm)
+
+    check numbers == @[
+      toseq 0..<4,
+      toseq 4..<8,
+      toseq 8..<12,
+      toseq 12..<16,
+      toseq 16..<20,
+      toseq 20..<24]
 
   test "P3":
     let ppm = parsePnm readFile "./examples/colorful.ppm"

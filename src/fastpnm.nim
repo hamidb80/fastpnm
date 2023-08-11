@@ -91,30 +91,14 @@ iterator findInts(s: string, offset: int): int =
                 "expected a digit in data section but got '" & ch &
                 "' ASCii code: " & $ch.ord)
 
-func needsToComplete(n, base: int): int =
-    let rem = n mod base
-    if rem == 0: 0
-    else: base - rem
 
-func complement(n, base: int): int =
-    n + needsToComplete(n, base)
-
-iterator findBits(s: string, width, offset: int): tuple[index: int, val: bool] =
-    let
-        diff = needsToComplete(width, 8)
-        widthComplete = complement(width, 8)
-
-    var c = 0
+iterator findBits(s: string, width, offset: int): bool =
     for i in offset..s.high:
         let ch = s[i]
         case ch
         of Whitespace: discard
         of '0', '1':
-            yield (c, ch == '1')
-
-            inc c:
-                if c mod widthComplete == width-1: diff+1
-                else: 1
+            yield ch == '1'
         else:
             raise newException(ValueError,
                     "expected whitespace or 1/0 but got: " & ch)
@@ -151,6 +135,9 @@ func add*(pnm: var Pnm, b: bool) =
     inc pnm.filled
     if b:
         pnm.data[gbi].setBit(rbi)
+
+func add*(pnm: var Pnm, i: SomeInteger) =
+    pnm.data.add i.uint8
 
 func add*(pnm: var Pnm, c: Color) =
     pnm.data.add c.r
@@ -218,7 +205,7 @@ func setColor*(pnm: var Pnm, x, y: int, color: Color) =
     pnm.data[i+1] = color.g
     pnm.data[i+2] = color.b
 
-func get2d*[T: bool or int or Color](pnm: Pnm): seq[seq[T]] =
+func get2d*[T: bool or SomeInteger or Color](pnm: Pnm): seq[seq[T]] =
     ## generates 2D representaion of stored data
     result.setLen pnm.height
 
@@ -227,37 +214,33 @@ func get2d*[T: bool or int or Color](pnm: Pnm): seq[seq[T]] =
             for x in 0..<pnm.width:
                 result[y].add pnm.getBool(x, y)
 
-    elif T is int:
+    elif T is SomeInteger:
         for y in 0..<pnm.height:
             for x in 0..<pnm.width:
-                result[y].add pnm.getGrayScale(x, y)
+                result[y].add pnm.getGrayScale(x, y).T
 
     else:
         for y in 0..<pnm.height:
             for x in 0..<pnm.width:
                 result[y].add pnm.getColor(x, y)
 
-func from2d*[T: bool or int or Color](mat: seq[seq[T]], compress = true): Pnm =
-    let
-        h = mat.len
-        w = mat[0].len
-
-    result.width = w
-    result.height = h
-
+func from2d*[T: bool or SomeInteger or Color](mat: seq[seq[T]],
+        compress = true): Pnm =
+    result.height = mat.len
+    result.width = mat[0].len
     result.magic =
         when T is bool:
             if compress: P4
             else: P1
-        elif T is uint8:
+        elif T is SomeInteger:
             if compress: P5
             else: P2
         else:
             if compress: P6
             else: P3
 
-    for y in 0..<h:
-        for x in 0..<w:
+    for y in 0..<result.height:
+        for x in 0..<result.width:
             let t = mat[y][x]
             result.add t
 
@@ -266,7 +249,7 @@ func from2d*[T: bool or int or Color](mat: seq[seq[T]], compress = true): Pnm =
 func parsePnmContent(s: string, offset: int, result: var Pnm) =
     case result.magic
     of P1:
-        for i, b in findBits(s, result.width, offset):
+        for b in findBits(s, result.width, offset):
             result.add b
     of P2, P3:
         for n in findInts(s, offset):
@@ -276,7 +259,7 @@ func parsePnmContent(s: string, offset: int, result: var Pnm) =
 
 func parsePnm*(s: string, captureComments = false): Pnm =
     ## parses your `.pnm`, `.pbm`, `.pgm`, `.ppm` files
-    result = Pnm()
+    result = Pnm(filled: 0)
     var
         lastCh = '\n'
         i = 0
