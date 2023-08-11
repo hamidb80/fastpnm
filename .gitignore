@@ -3,3 +3,4 @@ play.*
 *.exe
 /temp
 /tests/test
+htmldocs/

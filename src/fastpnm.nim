@@ -1,3 +1,10 @@
+runnableExamples:
+    import std/[os, strformat]
+    discard execShellCmd fmt"convert -flatten -background white -alpha remove -resize 32x32 ./examples/arrow.png ./examples/play.pbm"
+    let pbm = parsePnm readFile "./examples/play.pbm"
+    assert pbm.getBool(10, 10)
+    assert not pbm.getBool(0, 0)
+
 import std/[strutils, parseutils, bitops, macros]
 
 type
@@ -126,6 +133,7 @@ func fileExt*(magic: PnmMagic): string =
     of pixMap: "ppm"
 
 func getBool*(pnm: Pnm, x, y: int): bool =
+    ## only applicable when `pnm`.magic is P1 or P4
     assert pnm.magic in bitMap
     let
         d = x + y*(pnm.width.complement 8)
@@ -134,6 +142,7 @@ func getBool*(pnm: Pnm, x, y: int): bool =
     pnm.data[q].testBit(7-r)
 
 func setBool*(pnm: var Pnm, x, y: int, b: bool) =
+    ## only applicable when `pnm`.magic is P1 or P4
     assert pnm.magic in bitMap
     let
         d = x + y*(pnm.width.complement 8)
@@ -143,19 +152,23 @@ func setBool*(pnm: var Pnm, x, y: int, b: bool) =
     else: pnm.data[q].clearBit(7-r)
 
 iterator pairsBool*(pnm: Pnm): tuple[position: Position, value: bool] =
+    ## only applicable when `pnm`.magic is P1 or P4
     for y in 0 ..< pnm.height:
         for x in 0 ..< pnm.width:
             yield ((x, y), pnm.getBool(x, y))
 
 func getGrayScale*(pnm: Pnm, x, y: int): uint8 =
+    ## only applicable when `pnm`.magic is P2 or P5
     assert pnm.magic in grayMap
     pnm.data[x + y*pnm.width]
 
 func setGrayScale*(pnm: var Pnm, x, y: int, g: uint8): uint8 =
+    ## only applicable when `pnm`.magic is P2 or P5
     assert pnm.magic in grayMap
     pnm.data[x+y*pnm.width] = g
 
 func getColor*(pnm: Pnm, x, y: int): Color =
+    ## only applicable when `pnm`.magic is P3 or P6
     assert pnm.magic in pixMap
     let
         i = 3*(x+y*pnm.width)
@@ -163,6 +176,7 @@ func getColor*(pnm: Pnm, x, y: int): Color =
     (colors[0], colors[1], colors[2])
 
 func setColor*(pnm: var Pnm, x, y: int, color: Color) =
+    ## only applicable when `pnm`.magic is P3 or P6
     assert pnm.magic in pixMap
     let i = 3*(x+y*pnm.width)
     pnm.data[i+0] = color.r
@@ -187,7 +201,7 @@ func parsePnmContent(s: string, offset: int, result: var Pnm) =
         result.data = cast[seq[byte]](s[offset..s.high])
 
 func parsePnm*(s: string, captureComments = false): Pnm =
-    ## parses your `.pnm`, `.pbm`, `.pgm`, `.ppm` file
+    ## parses your `.pnm`, `.pbm`, `.pgm`, `.ppm` files
     var
         lastCh = '\n'
         i = 0
@@ -232,8 +246,7 @@ func parsePnm*(s: string, captureComments = false): Pnm =
         lastch = ch
 
 func `$`*(pnm: Pnm, dropWhiteSpaces = false, addComments = true): string =
-    ## convert the `.pnm`, `.pbm`, `.pgm`, `.ppm` file file back to
-    ## its string representation
+    ## convert the `.pnm`, `.pbm`, `.pgm`, `.ppm` file to its string representation
     result.addMulti $pnm.magic, '\n'
 
     for c in pnm.comments:
