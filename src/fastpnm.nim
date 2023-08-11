@@ -38,7 +38,7 @@ type
         width*, height*, maxValue*: Natural
         comments*: seq[string]
         data*: seq[byte]
-        filled*: Natural # XXX works with int
+        filled*: Natural
 
     Position* = tuple
         x, y: int
