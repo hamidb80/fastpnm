@@ -4,25 +4,18 @@ runnableExamples:
     # converting an image to `.pbm` format via `convert` tool (I think it's part of `ImageMagick` app)
     discard execShellCmd fmt"convert -flatten -background white -alpha remove -resize 32x32 ./examples/arrow.png ./examples/play4.pbm"
 
-    var pbm4 = parsePnm readFile "./examples/play4.pbm"
+    # parsing a .pbm file
+    let pbm4 = parsePnm readFile "./examples/play4.pbm"
+
+    # validate
     assert pbm4.magic == P4
     assert pbm4.width == 32
     assert pbm4.height == 32
     assert pbm4.getBool(10, 10)
     assert not pbm4.getBool(0, 0)
-    pbm4.magic = pbm4.magic.toUnCompressed
-    assert pbm4.magic == P1
-
-    writeFile "./examples/play1.pbm", $pbm4
-    let pbm1 = parsePnm readFile "./examples/play1.pbm"
-    assert pbm4.data == pbm1.data
-    assert pbm4.width == pbm1.width
-    assert pbm4.height == pbm1.height
-    echo (pbm4.magic, pbm1.magic) 
-    assert pbm1.magic == P1
 
 
-import std/[strutils, parseutils, bitops, macros]
+import std/[strutils, parseutils, bitops, math, macros]
 
 type
     PnmParserState = enum
@@ -45,6 +38,7 @@ type
         width*, height*, maxValue*: Natural
         comments*: seq[string]
         data*: seq[byte]
+        filled*: Natural # XXX works with int
 
     Position* = tuple
         x, y: int
@@ -75,9 +69,6 @@ macro addMulti(wrapper: untyped, elems: varargs[untyped]): untyped =
         result.add quote do:
             `wrapper`.add `e`
 
-template impossible =
-    raise newException(ValueError, "I thought it was impossible")
-
 # ----- private utility
 
 func toDigit(b: bool): char =
@@ -86,8 +77,7 @@ func toDigit(b: bool): char =
     of false: '0'
 
 iterator findInts(s: string, offset: int): int =
-    var
-        i = offset
+    var i = offset
     while i <= s.high:
         let ch = s[i]
         case ch
@@ -129,17 +119,38 @@ iterator findBits(s: string, width, offset: int): tuple[index: int, val: bool] =
             raise newException(ValueError,
                     "expected whitespace or 1/0 but got: " & ch)
 
-func add(s: var seq[byte], index: int, b: bool) =
-    let
-        q = index div 8
-        r = index mod 8
-
-    if s.len <= q:
-        s.setLen q+1
-    if b:
-        s[q].setBit 7-r
-
 # ----- utility API
+
+when defined debug:
+    func binrayRepr(s: seq[byte]): string =
+        for b in s:
+            result &= b.int.toBin(8)
+            result &= ' '
+
+func binaryPosition(pnm: Pnm, i: Natural
+): tuple[globalByteIndex, reverseBitIndex: int] =
+    let
+        w = pnm.width
+        rowBlocks = ceilDiv(w, 8)
+        row = i div w
+        column = i mod w
+        byteIndex = column div 8
+        globalByteIndex = byteIndex + rowBlocks*row
+        bitIndex = column mod 8
+        reverseBitIndex = 7 - bitIndex
+
+    (globalByteIndex, reverseBitIndex)
+
+func binaryPosition(pnm: Pnm, x, y: Natural
+): tuple[globalByteIndex, reverseBitIndex: int] =
+    pnm.binaryPosition x+y*pnm.width
+
+func add*(pnm: var Pnm, v: bool) =
+    let (gbi, rbi) = pnm.binaryPosition(pnm.filled)
+    pnm.data.setlen gbi+1
+    inc pnm.filled
+    if v:
+        pnm.data[gbi].setBit(rbi)
 
 const commonPnmExt* = ".pnm"
 func fileExt*(magic: PnmMagic): string =
@@ -166,27 +177,15 @@ func toUnCompressed*(m: PnmMagic): PnmMagic =
 func getBool*(pnm: Pnm, x, y: int): bool =
     ## only applicable when `pnm`.magic is P1 or P4
     assert pnm.magic in bitMap
-    let
-        d = x + y*(pnm.width.complement 8)
-        q = d div 8
-        r = d mod 8
-    pnm.data[q].testBit(7-r)
+    let (q, i) = pnm.binaryPosition(x, y)
+    pnm.data[q].testBit(i)
 
 func setBool*(pnm: var Pnm, x, y: int, b: bool) =
     ## only applicable when `pnm`.magic is P1 or P4
     assert pnm.magic in bitMap
-    let
-        d = x + y*(pnm.width.complement 8)
-        q = d div 8
-        r = d mod 8
-    if b: pnm.data[q].setBit(7-r)
-    else: pnm.data[q].clearBit(7-r)
-
-iterator pairsBool*(pnm: Pnm): tuple[position: Position, value: bool] =
-    ## only applicable when `pnm`.magic is P1 or P4
-    for y in 0 ..< pnm.height:
-        for x in 0 ..< pnm.width:
-            yield ((x, y), pnm.getBool(x, y))
+    let (q, i) = pnm.binaryPosition(x, y)
+    if b: pnm.data[q].setBit(i)
+    else: pnm.data[q].clearBit(i)
 
 func getGrayScale*(pnm: Pnm, x, y: int): uint8 =
     ## only applicable when `pnm`.magic is P2 or P5
@@ -220,19 +219,16 @@ func parsePnmContent(s: string, offset: int, result: var Pnm) =
     case result.magic
     of P1:
         for i, b in findBits(s, result.width, offset):
-            result.data.add i, b
-
+            result.add b
     of P2, P3:
         for n in findInts(s, offset):
-            case result.magic
-            of P2, P3:
-                result.data.add n.byte
-            else: impossible
+            result.data.add n.byte
     of compressed:
         result.data = cast[seq[byte]](s[offset..s.high])
 
 func parsePnm*(s: string, captureComments = false): Pnm =
     ## parses your `.pnm`, `.pbm`, `.pgm`, `.ppm` files
+    result = Pnm()
     var
         lastCh = '\n'
         i = 0
