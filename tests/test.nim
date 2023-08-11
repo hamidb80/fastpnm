@@ -72,12 +72,9 @@ suite "correctness":
 
   test "P3":
     let ppm = parsePnm readFile "./examples/colorful.ppm"
-    check ppm.getColor(0, 0) == c(255, 0, 0)
-    check ppm.getColor(1, 0) == c(0, 255, 0)
-    check ppm.getColor(2, 0) == c(0, 0, 255)
-    check ppm.getColor(0, 1) == c(255, 255, 0)
-    check ppm.getColor(1, 1) == c(255, 255, 255)
-    check ppm.getColor(2, 1) == c(0, 0, 0)
+    check get2d[Color](ppm) == @[
+      @[c(255, 0, 0), c(0, 255, 0), c(0, 0, 255)],
+      @[c(255, 255, 0), c(255, 255, 255), c(0, 0, 0)]]
 
 suite "special cases":
   test "P1 no space":

@@ -213,6 +213,26 @@ func setColor*(pnm: var Pnm, x, y: int, color: Color) =
     pnm.data[i+1] = color.g
     pnm.data[i+2] = color.b
 
+func get2d*[T: bool or int or Color](pnm: Pnm): seq[seq[T]] =
+    when T is bool:
+        for y in 0..<pnm.height:
+            result.add @[]
+            for x in 0..<pnm.width:
+                result[^1].add pnm.getBool(x, y)
+
+    elif T is int:
+        for y in 0..<pnm.height:
+            result.add @[]
+            for x in 0..<pnm.width:
+                result[^1].add pnm.getGrayScale(x, y)
+
+    else:
+        for y in 0..<pnm.height:
+            result.add @[]
+            for x in 0..<pnm.width:
+                result[^1].add pnm.getColor(x, y)
+
+
 # ----- main API
 
 func parsePnmContent(s: string, offset: int, result: var Pnm) =
