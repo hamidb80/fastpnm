@@ -36,7 +36,7 @@ type
     Pnm* = object
         magic*: PnmMagic
         width*, height*, maxValue*: Natural
-        comments*: seq[string]
+        comment*: string
         data*: seq[byte]
         filled*: Natural
 
@@ -288,7 +288,9 @@ func parsePnm*(s: string, captureComments = false): Pnm =
         if (lastCh in Newlines) and (ch == '#'):
             let newi = s.find('\n', i+1)
             if captureComments:
-                result.comments.add strip s[i+1 ..< newi]
+                if result.comment.len != 0:
+                    result.comment.add '\n'
+                result.comment.add strip s[i+1 ..< newi]
             i = newi
         elif ch in Whitespace: inc i
         else:
@@ -324,8 +326,8 @@ func `$`*(pnm: Pnm, dropWhiteSpaces = false, addComments = true): string =
     ## convert the `.pnm`, `.pbm`, `.pgm`, `.ppm` file to its string representation
     result.addMulti $pnm.magic, '\n'
 
-    for c in pnm.comments:
-        result.addMulti '#', ' ', $pnm.magic, '\n'
+    for c in pnm.comment.splitLines:
+        result.addMulti '#', ' ', c, '\n'
 
     result.addMulti $pnm.width, ' '
     result.addMulti $pnm.height, '\n'

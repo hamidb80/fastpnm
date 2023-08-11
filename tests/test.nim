@@ -6,6 +6,7 @@ template checkSame(a, b): untyped =
   check a.width == b.width
   check a.height == b.height
   check a.maxValue == b.maxValue
+  check a.comment == b.comment
   assert a.data == b.data
 
 proc exportPnm(size: int, m: PnmMagic): string =
@@ -93,7 +94,7 @@ suite "special cases":
 
     checkSame img1, img2
 
-suite "other":
+suite "2D":
   const
     T = true
     F = false
@@ -108,3 +109,16 @@ suite "other":
       0b11010011'u8, 0b01000000'u8,
       0b00101100'u8, 0b11000000'u8,
       0b11001011'u8, 0b00000000'u8]
+
+suite "comments":
+  let p = parsePnm(readfile "./examples/j_no_space.pbm", true)
+
+  test "captures comment":
+    check p.comment == "This is an example bitmap of the letter \"J\""
+
+  test "writes comment":
+    let c = "Hello! my name\nis Hamid!"
+    var ppp = p
+    ppp.comment = c
+    let again = parsePnm(`$`(ppp, addComments = true), true)
+    checkSame ppp, again
