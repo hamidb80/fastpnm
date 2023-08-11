@@ -1,9 +1,26 @@
 runnableExamples:
     import std/[os, strformat]
-    discard execShellCmd fmt"convert -flatten -background white -alpha remove -resize 32x32 ./examples/arrow.png ./examples/play.pbm"
-    let pbm = parsePnm readFile "./examples/play.pbm"
-    assert pbm.getBool(10, 10)
-    assert not pbm.getBool(0, 0)
+
+    # converting an image to `.pbm` format via `convert` tool (I think it's part of `ImageMagick` app)
+    discard execShellCmd fmt"convert -flatten -background white -alpha remove -resize 32x32 ./examples/arrow.png ./examples/play4.pbm"
+
+    var pbm4 = parsePnm readFile "./examples/play4.pbm"
+    assert pbm4.magic == P4
+    assert pbm4.width == 32
+    assert pbm4.height == 32
+    assert pbm4.getBool(10, 10)
+    assert not pbm4.getBool(0, 0)
+    pbm4.magic = pbm4.magic.toUnCompressed
+    assert pbm4.magic == P1
+
+    writeFile "./examples/play1.pbm", $pbm4
+    let pbm1 = parsePnm readFile "./examples/play1.pbm"
+    assert pbm4.data == pbm1.data
+    assert pbm4.width == pbm1.width
+    assert pbm4.height == pbm1.height
+    echo (pbm4.magic, pbm1.magic) 
+    assert pbm1.magic == P1
+
 
 import std/[strutils, parseutils, bitops, macros]
 
@@ -131,6 +148,20 @@ func fileExt*(magic: PnmMagic): string =
     of bitMap: "pbm"
     of grayMap: "pgm"
     of pixMap: "ppm"
+
+func toCompressed*(m: PnmMagic): PnmMagic =
+    case m
+    of P1: P4
+    of P2: P5
+    of P3: P6
+    else: m
+
+func toUnCompressed*(m: PnmMagic): PnmMagic =
+    case m
+    of P4: P1
+    of P5: P2
+    of P6: P3
+    else: m
 
 func getBool*(pnm: Pnm, x, y: int): bool =
     ## only applicable when `pnm`.magic is P1 or P4

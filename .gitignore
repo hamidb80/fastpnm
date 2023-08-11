@@ -1,5 +1,5 @@
 .vscode
-play.*
+play*
 *.exe
 /temp
 /tests/test
