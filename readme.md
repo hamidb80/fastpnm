@@ -3,5 +3,9 @@
 # fast `.pbm`, `.pgm`, `.ppm`, `.pnm` parser
 read more about [Netbpm project](https://en.wikipedia.org/wiki/Netpbm).
 
+## Usage
+`fastpnm` library provides very simple and intuitive API to work with,
+see [docs](hamidb80.github.io/fastpnm).
+
 ## TODO
 - [ ] add read from file API

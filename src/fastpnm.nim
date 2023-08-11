@@ -61,10 +61,6 @@ func toDigit(b: bool): char =
     of true: '1'
     of false: '0'
 
-func inBoard(pnm: Pnm, x, y: int): bool =
-    x in 0 ..< pnm.width and
-    y in 0 ..< pnm.height
-
 iterator findInts(s: string, offset: int): int =
     var
         i = offset
@@ -116,13 +112,14 @@ func add(s: var seq[byte], index: int, b: bool) =
 
     if s.len <= q:
         s.setLen q+1
-
     if b:
         s[q].setBit 7-r
 
 # ----- utility API
 
+const commonPnmExt* = ".pnm"
 func fileExt*(magic: PnmMagic): string =
+    ## returns file extension according to the magic
     case magic
     of bitMap: "pbm"
     of grayMap: "pgm"
@@ -135,6 +132,15 @@ func getBool*(pnm: Pnm, x, y: int): bool =
         q = d div 8
         r = d mod 8
     pnm.data[q].testBit(7-r)
+
+func setBool*(pnm: var Pnm, x, y: int, b: bool) =
+    assert pnm.magic in bitMap
+    let
+        d = x + y*(pnm.width.complement 8)
+        q = d div 8
+        r = d mod 8
+    if b: pnm.data[q].setBit(7-r)
+    else: pnm.data[q].clearBit(7-r)
 
 iterator pairsBool*(pnm: Pnm): tuple[position: Position, value: bool] =
     for y in 0 ..< pnm.height:
@@ -181,6 +187,7 @@ func parsePnmContent(s: string, offset: int, result: var Pnm) =
         result.data = cast[seq[byte]](s[offset..s.high])
 
 func parsePnm*(s: string, captureComments = false): Pnm =
+    ## parses your `.pnm`, `.pbm`, `.pgm`, `.ppm` file
     var
         lastCh = '\n'
         i = 0
@@ -225,6 +232,8 @@ func parsePnm*(s: string, captureComments = false): Pnm =
         lastch = ch
 
 func `$`*(pnm: Pnm, dropWhiteSpaces = false, addComments = true): string =
+    ## convert the `.pnm`, `.pbm`, `.pgm`, `.ppm` file file back to
+    ## its string representation
     result.addMulti $pnm.magic, '\n'
 
     for c in pnm.comments:
