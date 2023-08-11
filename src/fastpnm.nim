@@ -81,12 +81,12 @@ iterator findInts(s: string, offset: int): int =
                 "expected a digit in data section but got '" & ch &
                 "' ASCii code: " & $ch.ord)
 
-func needsToComplete(n, base: int): int = 
+func needsToComplete(n, base: int): int =
     let rem = n mod base
     if rem == 0: 0
     else: base - rem
 
-func complement(n, base: int): int = 
+func complement(n, base: int): int =
     n + needsToComplete(n, base)
 
 iterator findBits(s: string, width, offset: int): tuple[index: int, val: bool] =
@@ -122,26 +122,19 @@ func add(s: var seq[byte], index: int, b: bool) =
 
 # ----- utility API
 
-func size*(pnm: Pnm): int =
-    pnm.width * pnm.height
-
 func fileExt*(magic: PnmMagic): string =
     case magic
     of bitMap: "pbm"
     of grayMap: "pgm"
     of pixMap: "ppm"
 
-func getBool*(p: Pnm, x, y: int): bool =
-    assert p.inBoard(x, y)
-    case p.magic
-    of bitMap:
-        let
-            d = x + y*(p.width.complement 8)
-            q = d div 8
-            r = d mod 8
-        p.data[q].testBit(7-r)
-    else:
-        raise newException(ValueError, "the magic '" & $p.magic & "' does not have bool value")
+func getBool*(pnm: Pnm, x, y: int): bool =
+    assert pnm.magic in bitMap
+    let
+        d = x + y*(pnm.width.complement 8)
+        q = d div 8
+        r = d mod 8
+    pnm.data[q].testBit(7-r)
 
 iterator pairsBool*(pnm: Pnm): tuple[position: Position, value: bool] =
     for y in 0 ..< pnm.height:
