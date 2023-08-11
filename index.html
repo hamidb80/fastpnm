@@ -196,6 +196,16 @@ window.addEventListener('DOMContentLoaded', main);
     title="setGrayScale(pnm: var Pnm; x, y: int; g: uint8): uint8">setGrayScale(pnm: var Pnm; x, y: int; g: uint8): uint8</a></li>
 
   </ul>
+  <ul class="simple nested-toc-section">toCompressed
+      <li><a class="reference" href="#toCompressed%2CPnmMagic"
+    title="toCompressed(m: PnmMagic): PnmMagic">toCompressed(m: PnmMagic): PnmMagic</a></li>
+
+  </ul>
+  <ul class="simple nested-toc-section">toUnCompressed
+      <li><a class="reference" href="#toUnCompressed%2CPnmMagic"
+    title="toUnCompressed(m: PnmMagic): PnmMagic">toUnCompressed(m: PnmMagic): PnmMagic</a></li>
+
+  </ul>
 
   </ul>
 </li>
@@ -218,7 +228,30 @@ window.addEventListener('DOMContentLoaded', main);
   <div class="nine columns" id="content">
   <div id="tocRoot"></div>
   
-  <p class="module-desc"></p>
+  <p class="module-desc">
+<p><strong class="examples_text">Example:</strong></p>
+<pre class="listing"><span class="Keyword">import</span> <span class="Identifier">src</span><span class="Operator">/</span><span class="Identifier">fastpnm</span>
+<span class="Keyword">import</span> <span class="Identifier">std</span><span class="Operator">/</span><span class="Punctuation">[</span><span class="Identifier">os</span><span class="Punctuation">,</span> <span class="Identifier">strformat</span><span class="Punctuation">]</span>
+
+<span class="Comment"># converting an image to `.pbm` format via `convert` tool (I think it's part of `ImageMagick` app)</span>
+<span class="Keyword">discard</span> <span class="Identifier">execShellCmd</span> <span class="RawData">fmt&quot;convert -flatten -background white -alpha remove -resize 32x32 ./examples/arrow.png ./examples/play4.pbm&quot;</span>
+
+<span class="Keyword">var</span> <span class="Identifier">pbm4</span> <span class="Operator">=</span> <span class="Identifier">parsePnm</span> <span class="Identifier">readFile</span> <span class="StringLit">&quot;./examples/play4.pbm&quot;</span>
+<span class="Identifier">assert</span> <span class="Identifier">pbm4</span><span class="Operator">.</span><span class="Identifier">magic</span> <span class="Operator">==</span> <span class="Identifier">P4</span>
+<span class="Identifier">assert</span> <span class="Identifier">pbm4</span><span class="Operator">.</span><span class="Identifier">width</span> <span class="Operator">==</span> <span class="DecNumber">32</span>
+<span class="Identifier">assert</span> <span class="Identifier">pbm4</span><span class="Operator">.</span><span class="Identifier">height</span> <span class="Operator">==</span> <span class="DecNumber">32</span>
+<span class="Identifier">assert</span> <span class="Identifier">pbm4</span><span class="Operator">.</span><span class="Identifier">getBool</span><span class="Punctuation">(</span><span class="DecNumber">10</span><span class="Punctuation">,</span> <span class="DecNumber">10</span><span class="Punctuation">)</span>
+<span class="Identifier">assert</span> <span class="Keyword">not</span> <span class="Identifier">pbm4</span><span class="Operator">.</span><span class="Identifier">getBool</span><span class="Punctuation">(</span><span class="DecNumber">0</span><span class="Punctuation">,</span> <span class="DecNumber">0</span><span class="Punctuation">)</span>
+<span class="Identifier">pbm4</span><span class="Operator">.</span><span class="Identifier">magic</span> <span class="Operator">=</span> <span class="Identifier">pbm4</span><span class="Operator">.</span><span class="Identifier">magic</span><span class="Operator">.</span><span class="Identifier">toUnCompressed</span>
+<span class="Identifier">assert</span> <span class="Identifier">pbm4</span><span class="Operator">.</span><span class="Identifier">magic</span> <span class="Operator">==</span> <span class="Identifier">P1</span>
+
+<span class="Identifier">writeFile</span> <span class="StringLit">&quot;./examples/play1.pbm&quot;</span><span class="Punctuation">,</span> <span class="Operator">$</span><span class="Identifier">pbm4</span>
+<span class="Keyword">let</span> <span class="Identifier">pbm1</span> <span class="Operator">=</span> <span class="Identifier">parsePnm</span> <span class="Identifier">readFile</span> <span class="StringLit">&quot;./examples/play1.pbm&quot;</span>
+<span class="Identifier">assert</span> <span class="Identifier">pbm4</span><span class="Operator">.</span><span class="Identifier">data</span> <span class="Operator">==</span> <span class="Identifier">pbm1</span><span class="Operator">.</span><span class="Identifier">data</span>
+<span class="Identifier">assert</span> <span class="Identifier">pbm4</span><span class="Operator">.</span><span class="Identifier">width</span> <span class="Operator">==</span> <span class="Identifier">pbm1</span><span class="Operator">.</span><span class="Identifier">width</span>
+<span class="Identifier">assert</span> <span class="Identifier">pbm4</span><span class="Operator">.</span><span class="Identifier">height</span> <span class="Operator">==</span> <span class="Identifier">pbm1</span><span class="Operator">.</span><span class="Identifier">height</span>
+<span class="Identifier">echo</span> <span class="Punctuation">(</span><span class="Identifier">pbm4</span><span class="Operator">.</span><span class="Identifier">magic</span><span class="Punctuation">,</span> <span class="Identifier">pbm1</span><span class="Operator">.</span><span class="Identifier">magic</span><span class="Punctuation">)</span> 
+<span class="Identifier">assert</span> <span class="Identifier">pbm1</span><span class="Operator">.</span><span class="Identifier">magic</span> <span class="Operator">==</span> <span class="Identifier">P1</span></pre></p>
   <div class="section" id="7">
 <h1><a class="toc-backref" href="#7">Types</a></h1>
 <dl class="item">
@@ -372,7 +405,7 @@ window.addEventListener('DOMContentLoaded', main);
     <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
 <dd>
 
-convert the <tt class="docutils literal"><span class="pre"><span class="Operator">.</span><span class="Identifier">pnm</span></span></tt>, <tt class="docutils literal"><span class="pre"><span class="Operator">.</span><span class="Identifier">pbm</span></span></tt>, <tt class="docutils literal"><span class="pre"><span class="Operator">.</span><span class="Identifier">pgm</span></span></tt>, <tt class="docutils literal"><span class="pre"><span class="Operator">.</span><span class="Identifier">ppm</span></span></tt> file file back to its string representation
+convert the <tt class="docutils literal"><span class="pre"><span class="Operator">.</span><span class="Identifier">pnm</span></span></tt>, <tt class="docutils literal"><span class="pre"><span class="Operator">.</span><span class="Identifier">pbm</span></span></tt>, <tt class="docutils literal"><span class="pre"><span class="Operator">.</span><span class="Identifier">pgm</span></span></tt>, <tt class="docutils literal"><span class="pre"><span class="Operator">.</span><span class="Identifier">ppm</span></span></tt> file to its string representation
 
 </dd>
 </div>
@@ -388,7 +421,7 @@ returns file extension according to the magic
 <dt><pre><span class="Keyword">func</span> <a href="#getBool%2CPnm%2Cint%2Cint"><span class="Identifier">getBool</span></a><span class="Other">(</span><span class="Identifier">pnm</span><span class="Other">:</span> <a href="fastpnm.html#Pnm"><span class="Identifier">Pnm</span></a><span class="Other">;</span> <span class="Identifier">x</span><span class="Other">,</span> <span class="Identifier">y</span><span class="Other">:</span> <span class="Identifier">int</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">bool</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
 <dd>
 
-
+only applicable when <tt class="docutils literal"><span class="pre"><span class="Identifier">pnm</span></span></tt>.magic is P1 or P4
 
 </dd>
 </div>
@@ -396,7 +429,7 @@ returns file extension according to the magic
 <dt><pre><span class="Keyword">func</span> <a href="#getColor%2CPnm%2Cint%2Cint"><span class="Identifier">getColor</span></a><span class="Other">(</span><span class="Identifier">pnm</span><span class="Other">:</span> <a href="fastpnm.html#Pnm"><span class="Identifier">Pnm</span></a><span class="Other">;</span> <span class="Identifier">x</span><span class="Other">,</span> <span class="Identifier">y</span><span class="Other">:</span> <span class="Identifier">int</span><span class="Other">)</span><span class="Other">:</span> <a href="fastpnm.html#Color"><span class="Identifier">Color</span></a> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
 <dd>
 
-
+only applicable when <tt class="docutils literal"><span class="pre"><span class="Identifier">pnm</span></span></tt>.magic is P3 or P6
 
 </dd>
 </div>
@@ -404,7 +437,7 @@ returns file extension according to the magic
 <dt><pre><span class="Keyword">func</span> <a href="#getGrayScale%2CPnm%2Cint%2Cint"><span class="Identifier">getGrayScale</span></a><span class="Other">(</span><span class="Identifier">pnm</span><span class="Other">:</span> <a href="fastpnm.html#Pnm"><span class="Identifier">Pnm</span></a><span class="Other">;</span> <span class="Identifier">x</span><span class="Other">,</span> <span class="Identifier">y</span><span class="Other">:</span> <span class="Identifier">int</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">uint8</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
 <dd>
 
-
+only applicable when <tt class="docutils literal"><span class="pre"><span class="Identifier">pnm</span></span></tt>.magic is P2 or P5
 
 </dd>
 </div>
@@ -413,7 +446,7 @@ returns file extension according to the magic
     <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
 <dd>
 
-parses your <tt class="docutils literal"><span class="pre"><span class="Operator">.</span><span class="Identifier">pnm</span></span></tt>, <tt class="docutils literal"><span class="pre"><span class="Operator">.</span><span class="Identifier">pbm</span></span></tt>, <tt class="docutils literal"><span class="pre"><span class="Operator">.</span><span class="Identifier">pgm</span></span></tt>, <tt class="docutils literal"><span class="pre"><span class="Operator">.</span><span class="Identifier">ppm</span></span></tt> file
+parses your <tt class="docutils literal"><span class="pre"><span class="Operator">.</span><span class="Identifier">pnm</span></span></tt>, <tt class="docutils literal"><span class="pre"><span class="Operator">.</span><span class="Identifier">pbm</span></span></tt>, <tt class="docutils literal"><span class="pre"><span class="Operator">.</span><span class="Identifier">pgm</span></span></tt>, <tt class="docutils literal"><span class="pre"><span class="Operator">.</span><span class="Identifier">ppm</span></span></tt> files
 
 </dd>
 </div>
@@ -421,7 +454,7 @@ parses your <tt class="docutils literal"><span class="pre"><span class="Operator
 <dt><pre><span class="Keyword">func</span> <a href="#setBool%2CPnm%2Cint%2Cint%2Cbool"><span class="Identifier">setBool</span></a><span class="Other">(</span><span class="Identifier">pnm</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="fastpnm.html#Pnm"><span class="Identifier">Pnm</span></a><span class="Other">;</span> <span class="Identifier">x</span><span class="Other">,</span> <span class="Identifier">y</span><span class="Other">:</span> <span class="Identifier">int</span><span class="Other">;</span> <span class="Identifier">b</span><span class="Other">:</span> <span class="Identifier">bool</span><span class="Other">)</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
 <dd>
 
-
+only applicable when <tt class="docutils literal"><span class="pre"><span class="Identifier">pnm</span></span></tt>.magic is P1 or P4
 
 </dd>
 </div>
@@ -429,13 +462,29 @@ parses your <tt class="docutils literal"><span class="pre"><span class="Operator
 <dt><pre><span class="Keyword">func</span> <a href="#setColor%2CPnm%2Cint%2Cint%2CColor"><span class="Identifier">setColor</span></a><span class="Other">(</span><span class="Identifier">pnm</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="fastpnm.html#Pnm"><span class="Identifier">Pnm</span></a><span class="Other">;</span> <span class="Identifier">x</span><span class="Other">,</span> <span class="Identifier">y</span><span class="Other">:</span> <span class="Identifier">int</span><span class="Other">;</span> <span class="Identifier">color</span><span class="Other">:</span> <a href="fastpnm.html#Color"><span class="Identifier">Color</span></a><span class="Other">)</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
 <dd>
 
-
+only applicable when <tt class="docutils literal"><span class="pre"><span class="Identifier">pnm</span></span></tt>.magic is P3 or P6
 
 </dd>
 </div>
 <div id="setGrayScale,Pnm,int,int,uint8">
 <dt><pre><span class="Keyword">func</span> <a href="#setGrayScale%2CPnm%2Cint%2Cint%2Cuint8"><span class="Identifier">setGrayScale</span></a><span class="Other">(</span><span class="Identifier">pnm</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="fastpnm.html#Pnm"><span class="Identifier">Pnm</span></a><span class="Other">;</span> <span class="Identifier">x</span><span class="Other">,</span> <span class="Identifier">y</span><span class="Other">:</span> <span class="Identifier">int</span><span class="Other">;</span> <span class="Identifier">g</span><span class="Other">:</span> <span class="Identifier">uint8</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">uint8</span> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span>
     <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+<dd>
+
+only applicable when <tt class="docutils literal"><span class="pre"><span class="Identifier">pnm</span></span></tt>.magic is P2 or P5
+
+</dd>
+</div>
+<div id="toCompressed,PnmMagic">
+<dt><pre><span class="Keyword">func</span> <a href="#toCompressed%2CPnmMagic"><span class="Identifier">toCompressed</span></a><span class="Other">(</span><span class="Identifier">m</span><span class="Other">:</span> <a href="fastpnm.html#PnmMagic"><span class="Identifier">PnmMagic</span></a><span class="Other">)</span><span class="Other">:</span> <a href="fastpnm.html#PnmMagic"><span class="Identifier">PnmMagic</span></a> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
+<dd>
+
+
+
+</dd>
+</div>
+<div id="toUnCompressed,PnmMagic">
+<dt><pre><span class="Keyword">func</span> <a href="#toUnCompressed%2CPnmMagic"><span class="Identifier">toUnCompressed</span></a><span class="Other">(</span><span class="Identifier">m</span><span class="Other">:</span> <a href="fastpnm.html#PnmMagic"><span class="Identifier">PnmMagic</span></a><span class="Other">)</span><span class="Other">:</span> <a href="fastpnm.html#PnmMagic"><span class="Identifier">PnmMagic</span></a> {.<span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
 <dd>
 
 
@@ -452,7 +501,7 @@ parses your <tt class="docutils literal"><span class="pre"><span class="Operator
     <span><span class="Other pragmadots">...</span></span><span class="pragmawrap"><span class="Identifier">raises</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span><span class="Other">,</span> <span class="Identifier">tags</span><span class="Other">:</span> <span class="Other">[</span><span class="Other">]</span></span>.}</pre></dt>
 <dd>
 
-
+only applicable when <tt class="docutils literal"><span class="pre"><span class="Identifier">pnm</span></span></tt>.magic is P1 or P4
 
 </dd>
 </div>
@@ -466,7 +515,7 @@ parses your <tt class="docutils literal"><span class="pre"><span class="Operator
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br/>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2023-08-11 10:24:03 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2023-08-11 10:54:45 UTC</small>
       </div>
     </div>
   </div>
