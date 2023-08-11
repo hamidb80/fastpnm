@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.2.0"
+version       = "0.2.2"
 author        = "hamidb80"
 description   = "fast PNM (.pbm .pgm .ppm) parser"
 license       = "MIT"
