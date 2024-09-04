@@ -255,7 +255,8 @@ func parsePnmContent(s: string, offset: int, result: var Pnm) =
         for n in findInts(s, offset):
             result.data.add n.byte
     of compressed:
-        result.data = cast[seq[byte]](s[offset..s.high])
+        for n in offset..s.high:
+            result.data.add s[n].byte
 
 func parsePnm*(s: string, captureComments = false): Pnm =
     ## parses your `.pnm`, `.pbm`, `.pgm`, `.ppm` files

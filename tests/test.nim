@@ -1,4 +1,4 @@
-import std/[unittest, os, strformat, sequtils, strutils]
+import std/[unittest, os, strformat, sequtils, strutils, macros]
 import fastpnm
 
 
@@ -130,3 +130,19 @@ suite "comments":
     ppp.comment = c
     let again = parsePnm(`$`(ppp, addComments = true), true)
     checkSame ppp, again
+
+suite "Compile time parsing":
+
+  template assertStaticParsing(path: string) =
+    const compiletime = parsePnm staticRead(getProjectPath() / ".." / path)
+    let runtime = parsePnm readfile path
+    checkSame(compiletime, runtime)
+
+  test "P1":
+    assertStaticParsing("examples/j.pbm")
+
+  test "P2":
+    assertStaticParsing("examples/4x6.pgm")
+
+  test "P3":
+    assertStaticParsing("examples/colorful.ppm")
